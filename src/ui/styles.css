@@ -176,6 +176,8 @@ input { font: inherit; }
   flex-shrink: 0;
   overflow: hidden;
   font-family: var(--serif);
+  /* keep the corner indices (z-index) inside this card, so they never draw over the card in front */
+  isolation: isolate;
 }
 .card.red { color: var(--red); }
 .card .corner {
@@ -425,7 +427,7 @@ input { font: inherit; }
 
 /* ---------- game layout ---------- */
 /* bottom area = action bar + hand (card height + selection lift + fan arc) */
-.game { position: fixed; inset: 0; z-index: 1; --hud-h: 122px; --bottom-h: calc(var(--cw) * 2.06 + 72px); }
+.game { position: fixed; inset: 0; z-index: 1; --hud-h: 96px; --bottom-h: calc(var(--cw) * 2.06 + 72px); }
 .table-wrap {
   position: absolute;
   left: 50%;
@@ -448,7 +450,7 @@ input { font: inherit; }
   content: '';
   position: absolute;
   left: 0; right: 0;
-  top: calc(max(12px, env(safe-area-inset-top)) + 100px);
+  top: calc(max(12px, env(safe-area-inset-top)) + 72px);
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(232, 182, 76, 0.22) 15%, rgba(232, 182, 76, 0.22) 85%, transparent);
 }
@@ -458,49 +460,49 @@ input { font: inherit; }
 .team-panel.them .lvl-badge .v { background-image: linear-gradient(180deg, #fff0dc, #f4a064 60%, #d06a2a); }
 .hud .right { display: flex; justify-content: flex-end; align-items: flex-start; gap: 10px; }
 .hud .icons { display: flex; gap: 6px; position: relative; }
-.team-panel { height: 88px; width: 420px; max-width: 100%; padding: 0 16px 0 12px; display: flex; align-items: center; gap: 14px; }
+.team-panel { height: 62px; width: 380px; max-width: 100%; padding: 0 14px 0 9px; display: flex; align-items: center; gap: 11px; }
 .team-panel.attacking { border-color: var(--line-strong); }
 .lvl-badge {
-  width: 58px; height: 64px; border-radius: 12px; flex-shrink: 0;
+  width: 42px; height: 46px; border-radius: 9px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: linear-gradient(180deg, #2c0a10, #160508);
   box-shadow: inset 0 0 0 1px rgba(251, 227, 160, 0.55), inset 0 0 0 3px #1a0609, inset 0 0 0 4px rgba(232, 182, 76, 0.25), 0 6px 14px -6px rgba(0, 0, 0, 0.8);
 }
-.lvl-badge .k { font-family: var(--caps); font-size: 8.5px; letter-spacing: 0.2em; color: var(--ink-dim); padding-left: 0.2em; }
+.lvl-badge .k { font-family: var(--caps); font-size: 6.5px; letter-spacing: 0.2em; color: var(--ink-dim); padding-left: 0.2em; }
 .lvl-badge .v {
-  font-family: var(--serif); font-weight: 700; font-size: 30px; line-height: 1;
+  font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1;
   background: linear-gradient(180deg, #fff3c9, #e8b64c 60%, #c4882a);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.team-panel .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.team-panel .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .team-panel .top { display: flex; align-items: flex-start; gap: 8px; }
-.team-panel .ttl { font-family: var(--serif); font-weight: 700; font-size: 17px; white-space: nowrap; display: flex; gap: 8px; align-items: center; }
-.team-panel .members { font-size: 12px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-panel .ttl { font-family: var(--serif); font-weight: 700; font-size: 15px; white-space: nowrap; display: flex; gap: 8px; align-items: center; }
+.team-panel .members { font-size: 11px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-panel .members .counts { margin-left: 10px; opacity: 0.85; }
 .team-panel .pts { margin-left: auto; text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-.team-panel .pts .n { font-family: var(--serif); font-weight: 800; font-size: 26px; line-height: 1; }
-.team-panel .pts .k { font-family: var(--caps); font-size: 8.5px; letter-spacing: 0.16em; color: var(--ink-dim); white-space: nowrap; margin-top: 2px; }
-.team-panel .foot-line { height: 16px; display: flex; align-items: center; }
+.team-panel .pts .n { font-family: var(--serif); font-weight: 800; font-size: 21px; line-height: 1; }
+.team-panel .pts .k { font-family: var(--caps); font-size: 7.5px; letter-spacing: 0.16em; color: var(--ink-dim); white-space: nowrap; margin-top: 2px; }
+.team-panel .foot-line { height: 12px; display: flex; align-items: center; }
 .track { position: relative; flex: 1; height: 5px; border-radius: 99px; background: rgba(0,0,0,0.5); box-shadow: inset 0 0 0 1px rgba(232,182,76,0.2); }
 .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: linear-gradient(90deg, #c98a22, #fbe39c); box-shadow: 0 0 10px rgba(232,182,76,0.6); }
 .track .tick { position: absolute; top: -3px; width: 1.5px; height: 11px; background: rgba(251, 227, 160, 0.4); }
 .track .tick.flip { background: var(--gold-hi); }
-.team-panel .caption { font-size: 12px; color: var(--ink); opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-panel .caption { font-size: 11px; color: var(--ink); opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.trump-pill { height: 88px; display: flex; align-items: center; gap: 14px; padding: 0 24px 0 14px; border-radius: 14px; border-color: var(--line-strong); }
+.trump-pill { height: 62px; display: flex; align-items: center; gap: 11px; padding: 0 20px 0 10px; border-radius: 14px; border-color: var(--line-strong); }
 .medallion {
-  width: 54px; height: 54px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center;
-  font-size: 28px;
+  font-size: 21px;
   background: radial-gradient(circle at 35% 30%, #fffaf0, #eadbb8);
   box-shadow: 0 0 0 2px var(--gold), 0 0 0 4px #4a0c0c, 0 0 0 5px rgba(232,182,76,0.6), 0 0 18px rgba(232,182,76,0.35);
   color: var(--black);
   flex-shrink: 0;
 }
 .medallion.red { color: var(--red); }
-.trump-pill .t1 { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.trump-pill .t1 { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .trump-pill .t1 .zh { font-family: var(--zh); font-weight: 900; color: var(--gold-hi); }
-.trump-pill .t2 { font-size: 13px; color: var(--ink-dim); white-space: nowrap; margin-top: 3px; }
+.trump-pill .t2 { font-size: 12px; color: var(--ink-dim); white-space: nowrap; margin-top: 1px; }
 .trump-pill .t2 b { color: var(--gold-hi); font-weight: 600; }
 
 .seat { position: absolute; z-index: 6; }

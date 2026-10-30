@@ -110,15 +110,11 @@ function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: num
 const MASTER = 0.45;
 
 export const sfx = {
-  /** A card (or a combo of n cards) set down on the felt: a soft, muffled tap. */
-  card(n = 1) {
+  /** A play (any number of cards) set down on the felt: one soft, muffled tap. */
+  card() {
     play((a, out, t) => {
-      for (let i = 0; i < Math.min(n, 3); i++) {
-        const at = t + i * 0.05;
-        const g = 0.22 * (1 - i * 0.2);
-        burst(a, out, at, 0.09, 900 + Math.random() * 200, 0.5, g, 'lowpass');
-        tone(a, out, at, 120, 0.08, g * 0.25, 'sine', 0.008, 80);
-      }
+      burst(a, out, t, 0.09, 900 + Math.random() * 200, 0.5, 0.22, 'lowpass');
+      tone(a, out, t, 120, 0.08, 0.055, 'sine', 0.008, 80);
     }, MASTER);
   },
   /** Kept as a no-op: ticking on every dealt card was too busy. */

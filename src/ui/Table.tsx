@@ -1087,7 +1087,7 @@ function useSounds(view: PlayerView, myTurn: boolean) {
     const trickKey = `${view.tricksPlayed}`;
     const plays = trick?.plays.length ?? 0;
     if (trick && (trickKey !== p.trickKey ? plays > 0 : plays > p.plays)) {
-      sfx.card(trick.plays[plays - 1].cards.length);
+      sfx.card();
     }
     const winner = trick?.winner ?? null;
     if (trick && winner !== null && (p.winner === null || trickKey !== p.trickKey)) {
