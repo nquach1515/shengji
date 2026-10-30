@@ -1,0 +1,262 @@
+import { AnimatePresence, motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { Card } from '../game/cards';
+import { loadSavedHost } from '../net/host';
+import { Pace, Settings } from '../net/protocol';
+import type { StartMode } from './App';
+import { CardFace } from './Card';
+import { Modal } from './Modal';
+
+const FAN: Card[] = [
+  { id: 'a', suit: 'S', rank: 14 },
+  { id: 'b', suit: 'H', rank: 13 },
+  { id: 'c', suit: 'J', rank: 16 },
+  { id: 'd', suit: 'D', rank: 10 },
+  { id: 'e', suit: 'C', rank: 12 },
+];
+
+export const LENGTHS: { level: number; label: string; note: string }[] = [
+  { level: 2, label: 'Classic', note: 'Traditional: start at 2, climb to Ace · a long game' },
+  { level: 7, label: 'Shorter', note: 'Start at 7 · about half the rounds' },
+  { level: 10, label: 'Quick', note: 'Start at 10 · a game in a few rounds' },
+];
+export const PACES: { pace: Pace; label: string }[] = [
+  { pace: 'relaxed', label: 'Relaxed' },
+  { pace: 'normal', label: 'Normal' },
+  { pace: 'fast', label: 'Fast' },
+];
+
+function loadName() {
+  try {
+    return localStorage.getItem('sj-name') ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  id,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  id: string;
+}) {
+  return (
+    <div className="seg">
+      {options.map((o) => (
+        <button key={String(o.value)} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>
+          {o.value === value && (
+            <motion.div layoutId={`seg-${id}`} className="pill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+          )}
+          <span>{o.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => void }) {
+  const urlCode = useMemo(() => new URL(window.location.href).searchParams.get('room') ?? '', []);
+  const saved = useMemo(() => loadSavedHost(), []);
+  const [name, setName] = useState(loadName);
+  const [code, setCode] = useState(urlCode);
+  const [err, setErr] = useState('');
+  const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal' });
+  const [rules, setRules] = useState(false);
+
+  const go = (mode: StartMode) => {
+    const n = name.trim();
+    if (!n) {
+      setErr('Pick a name first');
+      return;
+    }
+    try {
+      localStorage.setItem('sj-name', n);
+    } catch {
+      /* ignore */
+    }
+    onStart(mode, n.slice(0, 16));
+  };
+
+  const join = () => {
+    const c = code.trim().toUpperCase();
+    if (c.length !== 4) {
+      setErr('Room codes are 4 letters');
+      return;
+    }
+    go({ kind: 'join', code: c });
+  };
+
+  const length = LENGTHS.find((l) => l.level === settings.startLevel)!;
+
+  return (
+    <div className="home">
+      <div className="home-inner">
+        <div className="logo-fan">
+          {FAN.map((card, i) => {
+            const mid = (FAN.length - 1) / 2;
+            return (
+              <motion.div
+                key={card.id}
+                style={{ position: 'absolute', bottom: 0, transformOrigin: '50% 135%' }}
+                initial={{ rotate: 0, y: 60, opacity: 0 }}
+                animate={{ rotate: (i - mid) * 15, y: Math.abs(i - mid) * 8, opacity: 1 }}
+                transition={{ delay: 0.1 + i * 0.08, type: 'spring', stiffness: 150, damping: 15 }}
+                whileHover={{ y: Math.abs(i - mid) * 8 - 18, transition: { duration: 0.2 } }}
+              >
+                <CardFace card={card} style={{ ['--cw' as string]: '92px' }} />
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <motion.div
+          className="wordmark"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.35, type: 'spring', stiffness: 120, damping: 14 }}
+        >
+          <div className="zh">升级</div>
+          <div className="en">Sheng Ji · Tractor</div>
+        </motion.div>
+        <motion.div className="tagline" initial={{ opacity: 0 }} animate={{ opacity: 0.85 }} transition={{ delay: 0.55 }}>
+          The classic Chinese partnership card game. Two decks, four players, one climb from 2 to Ace.
+        </motion.div>
+
+        <motion.div className="name-row" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+          <span>Your name</span>
+          <input
+            className="input"
+            value={name}
+            maxLength={16}
+            placeholder="e.g. Nick"
+            onChange={(e) => {
+              setName(e.target.value);
+              setErr('');
+            }}
+          />
+        </motion.div>
+        {err && <div className="err">{err}</div>}
+
+        <div className="mode-cards">
+          <motion.div
+            className="panel mode-card"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, type: 'spring', stiffness: 120, damping: 18 }}
+          >
+            <h3>Play with bots</h3>
+            <p>You and a bot partner against two bots.</p>
+            <div className="opt-row">
+              <span className="label">Length</span>
+              <Segmented
+                id="len"
+                options={LENGTHS.map((l) => ({ value: l.level, label: l.label }))}
+                value={settings.startLevel}
+                onChange={(startLevel) => setSettings((s) => ({ ...s, startLevel }))}
+              />
+            </div>
+            <div className="opt-note">{length.note}</div>
+            <div className="opt-row">
+              <span className="label">Pace</span>
+              <Segmented
+                id="pace"
+                options={PACES.map((p) => ({ value: p.pace, label: p.label }))}
+                value={settings.pace}
+                onChange={(pace) => setSettings((s) => ({ ...s, pace }))}
+              />
+            </div>
+            <button className="btn primary" style={{ marginTop: 6 }} onClick={() => go({ kind: 'practice', settings })}>
+              Deal me in
+            </button>
+          </motion.div>
+
+          <motion.div
+            className="panel mode-card"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, type: 'spring', stiffness: 120, damping: 18 }}
+          >
+            <h3>Play with friends</h3>
+            <p>Host a table and share the code — bots can fill any empty seat.</p>
+            {urlCode ? (
+              <button className="btn primary" onClick={join}>
+                Join table {code.toUpperCase()}
+              </button>
+            ) : (
+              <button className="btn primary" onClick={() => go({ kind: 'host' })}>
+                Host a table
+              </button>
+            )}
+            {saved && (
+              <button className="btn small" onClick={() => go({ kind: 'resume' })}>
+                Resume your table {saved.code}
+              </button>
+            )}
+            <div className="divider">{urlCode ? 'or host your own' : 'or join with a code'}</div>
+            {urlCode ? (
+              <button className="btn" onClick={() => go({ kind: 'host' })}>
+                Host a new table
+              </button>
+            ) : (
+              <div className="row">
+                <input
+                  className="input code grow"
+                  value={code}
+                  maxLength={4}
+                  placeholder="CODE"
+                  onChange={(e) => {
+                    setCode(e.target.value.replace(/[^a-z]/gi, ''));
+                    setErr('');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && join()}
+                />
+                <button className="btn" onClick={join} disabled={code.length !== 4}>
+                  Join
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        <button className="link" onClick={() => setRules(true)}>
+          How to play
+        </button>
+      </div>
+      <AnimatePresence>{rules && <RulesModal onClose={() => setRules(false)} />}</AnimatePresence>
+    </div>
+  );
+}
+
+export function RulesModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal onClose={onClose} className="rules">
+      <h2>How to play</h2>
+      <h3>Teams &amp; goal</h3>
+      <ul>
+        <li>Four players, partners sit across. Both teams start at a level (2 in a classic game) and climb to Ace.</li>
+        <li>The dealing team defends; the other team attacks by capturing points: 5s are worth 5, 10s and Ks 10.</li>
+        <li>Attackers need 80 of the 200 points to take over the deal; every 40 more is a level up for them.</li>
+      </ul>
+      <h3>Trump</h3>
+      <ul>
+        <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump.</li>
+        <li>Trump order: big joker, small joker, level card in trump suit, other level cards, then trump suit A down to 2.</li>
+        <li>The dealer picks up the 8-card kitty and buries 8 cards.</li>
+      </ul>
+      <h3>Playing tricks</h3>
+      <ul>
+        <li>Lead a single, a pair, a tractor (consecutive pairs), or several unbeatable combos at once (a throw).</li>
+        <li>Follow suit with the same number of cards, and match pairs/tractors when you can. If you're out of the suit, you may trump.</li>
+        <li>If attackers win the last trick, the kitty's points count double (or more for pairs and tractors).</li>
+      </ul>
+      <button className="btn primary" onClick={onClose}>
+        Got it
+      </button>
+    </Modal>
+  );
+}

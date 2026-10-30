@@ -1,0 +1,152 @@
+import { AnimatePresence, motion } from 'framer-motion';
+import { PointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Card } from '../game/cards';
+import { effSuit, isTrump, TrumpCtx } from '../game/rules';
+import { CardFace } from './Card';
+import { PHONE_W, useStage } from './stage';
+
+function useWidth(ref: React.RefObject<HTMLElement>) {
+  const [w, setW] = useState(800);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
+
+function cardWidth(stageW: number) {
+  return stageW <= PHONE_W ? 52 : Math.min(96, Math.max(54, stageW * 0.06));
+}
+
+interface Props {
+  cards: Card[];
+  ctx: TrumpCtx;
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+  /** cards that arrive while true fly in from the deck */
+  dealing: boolean;
+}
+
+export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  const width = useWidth(ref);
+  const stage = useStage();
+  const cw = cardWidth(stage.w);
+  const ch = cw * 1.4;
+
+  // Layout: group by effective suit with small gaps; wrap into two rows when the fan gets too tight.
+  const n = cards.length;
+  const groupGap = cw * 0.2;
+  const layoutRow = (row: Card[]) => {
+    let groups = 0;
+    const groupIdx: number[] = [];
+    row.forEach((c, i) => {
+      if (i > 0 && effSuit(c, ctx) !== effSuit(row[i - 1], ctx)) groups++;
+      groupIdx.push(groups);
+    });
+    const step = Math.min(cw * 0.8, (width - cw - groups * groupGap) / Math.max(1, row.length - 1));
+    const total = cw + step * (row.length - 1) + groups * groupGap;
+    const start = (width - total) / 2;
+    return row.map((_, i) => start + i * step + groupIdx[i] * groupGap);
+  };
+  const oneRowStep = (width - cw - 4 * groupGap) / Math.max(1, n - 1);
+  const twoRows = n > 14 && oneRowStep < cw * 0.3;
+  const rows = twoRows ? [cards.slice(0, Math.ceil(n / 2)), cards.slice(Math.ceil(n / 2))] : [cards];
+  const lift = cw * 0.34;
+  const rowOffset = ch * 0.52;
+  const height = ch + (rows.length - 1) * rowOffset + lift + cw * 0.3;
+
+  const placed: { card: Card; x: number; y: number; rotate: number; z: number }[] = [];
+  rows.forEach((row, r) => {
+    const xs = layoutRow(row);
+    const mid = (row.length - 1) / 2;
+    const maxRot = twoRows ? 3 : Math.min(5, row.length * 0.25);
+    row.forEach((card, i) => {
+      const t = mid === 0 ? 0 : (i - mid) / mid;
+      placed.push({
+        card,
+        x: xs[i],
+        y: lift + r * rowOffset + t * t * cw * 0.08,
+        rotate: t * maxRot,
+        z: r * 100 + i,
+      });
+    });
+  });
+
+  // Click or drag across cards to select/deselect.
+  const drag = useRef<{ mode: 'add' | 'remove'; touched: Set<string> } | null>(null);
+  const sel = useRef(selected);
+  sel.current = selected;
+  const idAt = (x: number, y: number) =>
+    (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('[data-card]')?.dataset.card;
+  const apply = (id: string) => {
+    const d = drag.current;
+    if (!d || d.touched.has(id)) return;
+    d.touched.add(id);
+    const next = new Set(sel.current);
+    if (d.mode === 'add') next.add(id);
+    else next.delete(id);
+    onChange(next);
+  };
+  const onDown = (e: PointerEvent) => {
+    const id = idAt(e.clientX, e.clientY);
+    if (!id) return;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    drag.current = { mode: sel.current.has(id) ? 'remove' : 'add', touched: new Set() };
+    apply(id);
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!drag.current) return;
+    const id = idAt(e.clientX, e.clientY);
+    if (id) apply(id);
+  };
+  useEffect(() => {
+    const up = () => (drag.current = null);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="hand"
+      style={{ height, ['--cw' as string]: `${cw}px` }}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+    >
+      <AnimatePresence initial={false}>
+        {placed.map(({ card, x, y, rotate, z }) => {
+          const isSel = selected.has(card.id);
+          const ty = isSel ? y - lift : y;
+          return (
+            <motion.div
+              key={card.id}
+              data-card={card.id}
+              className="slot"
+              style={{ zIndex: z }}
+              initial={
+                dealing
+                  ? { x: width / 2 - cw / 2, y: -stage.h * 0.45, rotate: 160, opacity: 0, scale: 0.7 }
+                  : { x, y: ty + 40, rotate, opacity: 0 }
+              }
+              animate={{ x, y: ty, rotate, opacity: 1, scale: 1 }}
+              exit={{ y: ty - 140, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
+              whileHover={{ y: ty - (isSel ? 4 : 12) }}
+              transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
+            >
+              <CardFace card={card} trump={isTrump(card, ctx)} selected={isSel} />
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+}
