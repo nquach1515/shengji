@@ -659,3 +659,24 @@ input { font: inherit; }
 .throw-splash .cards { display: flex; margin-top: 4px; }
 .throw-splash .cards .card { --cw: 66px; }
 .throw-splash .cards .card + .card { margin-left: -28px; }
+
+/* trick history */
+.modal.history { width: min(820px, 100%); max-height: calc(100cqh - 48px); }
+.history-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.history-row { border: 1px solid var(--line); border-radius: 14px; background: rgba(0, 0, 0, 0.28); padding: 10px 14px 12px; text-align: left; }
+.history-head { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-dim); margin-bottom: 8px; }
+.history-head b { color: var(--ink); }
+.history-head .num { font-family: var(--serif); font-weight: 700; color: var(--gold-hi); min-width: 28px; }
+.history-head .pts { margin-left: auto; font-weight: 700; padding: 1px 9px; border-radius: 999px; font-size: 12px; }
+.history-head .pts.us { color: #bff3e6; background: rgba(125, 220, 196, 0.14); border: 1px solid rgba(125, 220, 196, 0.4); }
+.history-head .pts.them { color: #ffd9c2; background: rgba(244, 160, 100, 0.14); border: 1px solid rgba(244, 160, 100, 0.4); }
+.history-plays { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.history-play { padding: 6px 8px 8px; border-radius: 10px; border: 1px solid transparent; }
+.history-play.won { border-color: rgba(232, 182, 76, 0.55); background: rgba(232, 182, 76, 0.07); }
+.history-play .who { font-size: 12px; color: var(--ink-dim); margin-bottom: 5px; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.history-play .cards { display: flex; }
+.history-play .cards .card { --cw: 56px; }
+.history-play .cards > * + * { margin-left: -31px; }
+@container stage (max-width: 720px) {
+  .history-plays { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

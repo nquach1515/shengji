@@ -69,6 +69,8 @@ export interface GameState {
   turn: number;
   trick: Trick | null;
   lastTrick: Trick | null;
+  /** every completed trick this round, oldest first */
+  history: Trick[];
   tricksPlayed: number;
   attackerPoints: number;
   capturedCards: Card[];
@@ -108,6 +110,7 @@ export function newGame(startLevel = 2): GameState {
     turn: 0,
     trick: null,
     lastTrick: null,
+    history: [],
     tricksPlayed: 0,
     attackerPoints: 0,
     capturedCards: [],
@@ -136,6 +139,7 @@ export function startRound(s: GameState): void {
   s.passed = [false, false, false, false];
   s.trick = null;
   s.lastTrick = null;
+  s.history = [];
   s.tricksPlayed = 0;
   s.attackerPoints = 0;
   s.capturedCards = [];
@@ -309,6 +313,7 @@ export function collectTrick(s: GameState, seatName: (seat: number) => string): 
   }
   s.tricksPlayed += 1;
   s.lastTrick = trick;
+  s.history = [...(s.history ?? []), trick];
   if (s.hands.every((h) => h.length === 0)) {
     endRound(s, trick);
   } else {

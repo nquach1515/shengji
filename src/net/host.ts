@@ -420,6 +420,7 @@ export class HostController {
       turn: s.turn,
       trick: s.trick,
       lastTrick: s.lastTrick,
+      tricks: s.history ?? [],
       tricksPlayed: s.tricksPlayed,
       attackerPoints: s.attackerPoints,
       capturedCards: s.capturedCards,

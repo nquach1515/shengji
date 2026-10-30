@@ -164,29 +164,8 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
 
       <AnimatePresence>
         {showRules && <RulesModal onClose={() => setShowRules(false)} />}
-        {showLast && view.lastTrick && (
-          <Modal onClose={() => setShowLast(false)}>
-            <h2>Last trick</h2>
-            <div className="last-trick">
-              {view.lastTrick.plays.map((p) => (
-                <div key={p.seat}>
-                  <div className="who">
-                    {name(p.seat)}
-                    {p.seat === view.lastTrick!.winner ? ' · won' : ''}
-                  </div>
-                  <div className="cards">
-                    {p.cards.map((c) => (
-                      <CardFace key={c.id} card={c} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="sub">{view.lastTrick.points} points</div>
-            <button className="btn" onClick={() => setShowLast(false)}>
-              Close
-            </button>
-          </Modal>
+        {showLast && view.tricks.length > 0 && (
+          <TrickHistory view={view} name={name} onClose={() => setShowLast(false)} />
         )}
         {(view.phase === 'roundEnd' || view.phase === 'gameOver') && view.result && (
           <RoundEnd key={`r${view.round}`} view={view} send={send} />
@@ -263,7 +242,7 @@ function Hud({
           <button className="btn icon-btn" title="React" onClick={() => setEmotes((x) => !x)}>
             ☺
           </button>
-          <button className="btn icon-btn" title="Last trick" onClick={onLast} disabled={!view.lastTrick}>
+          <button className="btn icon-btn" title="Tricks played this round" onClick={onLast} disabled={view.tricks.length === 0}>
             ↺
           </button>
           <button className="btn icon-btn" title="How to play" onClick={onRules}>
@@ -1191,5 +1170,58 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Every trick played this round, newest first: who led, each player's cards, the winner and the points. */
+function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: number) => string; onClose: () => void }) {
+  const usTeam = (view.you ?? 0) % 2;
+  const tricks = view.tricks.map((t, i) => ({ t, n: i + 1 })).reverse();
+  return (
+    <Modal onClose={onClose} className="history">
+      <h2>Tricks this round</h2>
+      <div className="sub">
+        {view.tricks.length} played · newest first
+      </div>
+      <div className="history-list">
+        {tricks.map(({ t, n }) => (
+          <motion.div
+            key={n}
+            className="history-row"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(0.3, (view.tricks.length - n) * 0.03) }}
+          >
+            <div className="history-head">
+              <span className="num">#{n}</span>
+              <span>
+                <b>{name(t.winner!)}</b> {t.winner === view.you ? 'win' : 'wins'}
+              </span>
+              {t.points > 0 && (
+                <span className={`pts ${t.winner! % 2 === usTeam ? 'us' : 'them'}`}>{t.points} pts</span>
+              )}
+            </div>
+            <div className="history-plays">
+              {t.plays.map((p, i) => (
+                <div key={p.seat} className={`history-play ${p.seat === t.winner ? 'won' : ''}`}>
+                  <div className="who">
+                    {name(p.seat)}
+                    {i === 0 && <span className="tag">led</span>}
+                  </div>
+                  <div className="cards">
+                    {p.cards.map((c) => (
+                      <CardFace key={c.id} card={c} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      <button className="btn" onClick={onClose}>
+        Close
+      </button>
+    </Modal>
   );
 }

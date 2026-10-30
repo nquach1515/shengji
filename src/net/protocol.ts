@@ -56,6 +56,8 @@ export interface PlayerView {
   turn: number;
   trick: Trick | null;
   lastTrick: Trick | null;
+  /** every completed trick this round, oldest first */
+  tricks: Trick[];
   tricksPlayed: number;
   attackerPoints: number;
   capturedCards: Card[];
