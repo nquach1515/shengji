@@ -117,8 +117,12 @@ export const sfx = {
       tone(a, out, t, 120, 0.08, 0.055, 'sine', 0.008, 80);
     }, MASTER);
   },
-  /** Kept as a no-op: ticking on every dealt card was too busy. */
-  deal() {},
+  /** A card sliding into your hand while dealing: a quiet, short brush (slightly varied so it doesn't drone). */
+  deal() {
+    play((a, out, t) => {
+      burst(a, out, t, 0.05, 1400 + Math.random() * 500, 0.6, 0.1, 'bandpass');
+    }, MASTER);
+  },
   /** Cards gathered to the trick winner: a quiet brush. */
   sweep() {
     play((a, out, t) => {
