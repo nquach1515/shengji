@@ -584,7 +584,7 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
               animate={{ x: at.x, y: at.y, opacity: 1, scale: 1, rotate: 0 }}
               transition={{ type: 'spring', stiffness: 260, damping: 26 }}
             >
-              <div className={`trick-play ${p.seat === leading ? 'winner' : ''} ${p.cards.length > 3 ? 'many' : ''}`}>
+              <div className={`trick-play ${p.seat === leading ? 'winner' : ''} ${p.cards.length > 5 ? 'huge' : p.cards.length > 3 ? 'many' : ''}`}>
                 {p.cards.map((c, i) => (
                   <motion.div
                     key={c.id}

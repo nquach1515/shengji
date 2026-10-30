@@ -544,6 +544,8 @@ input { font: inherit; }
 .trick-play>*+*{margin-left:calc(var(--tw) * -.56)}
 .trick-play.many{--tw: clamp(44px, 4.6cqw, 72px)}
 .trick-play.many>*+*{margin-left:calc(var(--tw) * -.6)}
+.trick-play.huge{--tw: clamp(40px, 4cqw, 62px)}
+.trick-play.huge>*+*{margin-left:calc(var(--tw) * -.62)}
 .trick-play.winner .card{box-shadow:inset 0 0 0 1px #a0783c40,0 0 0 2px var(--gold),0 0 26px #fbe3a0b3}
 .deck-stack{position:absolute;left:50%;top:50%;z-index:3}
 .deck-stack .card{position:absolute;left:0;top:0;transform:translate(-50%,-50%);--cw: 64px}
