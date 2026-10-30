@@ -219,7 +219,7 @@ function smartLead(s: GameState, seat: number): Card[] {
 // ---------------------------------------------------------------------------------------------
 // Following
 
-function candidates(hand: Card[], lead: Card[], ctx: TrumpCtx): Card[][] {
+export function candidates(hand: Card[], lead: Card[], ctx: TrumpCtx): Card[][] {
   const n = lead.length;
   const suit = effSuit(lead[0], ctx);
   const suitCards = hand.filter((c) => effSuit(c, ctx) === suit);

@@ -3,6 +3,7 @@ import { botBury, botDeclare, botPlay, suggest } from '../game/bot';
 import { sortHand } from '../game/rules';
 import {
   bury,
+  checkPlay,
   collectTrick,
   ctxOf,
   dealOne,
@@ -93,6 +94,11 @@ export class HostController {
   private cancelTimer: (() => void) | null = null;
   private listeners = new Set<() => void>();
   private destroyed = false;
+  private worker: Worker | null | undefined;
+  private workerSeq = 0;
+  private workerWaiting = new Map<number, (ids: string[] | null) => void>();
+  /** the decision a bot is currently thinking about, so it isn't requested twice */
+  private botThinking: string | null = null;
 
   constructor(
     public code: string,
@@ -230,6 +236,7 @@ export class HostController {
 
   destroy() {
     this.destroyed = true;
+    this.worker?.terminate();
     this.cancelTimer?.();
     this.peer?.destroy();
     this.listeners.clear();
@@ -380,13 +387,62 @@ export class HostController {
         if (s.trick && s.trick.winner !== null) {
           this.schedule(PACE[this.settings.pace].trick, () => collectTrick(s, this.name));
         } else if (this.isBot(s.turn)) {
-          this.schedule((650 + Math.random() * 450) * PACE[this.settings.pace].bot, () => {
-            const ids = botPlay(s, s.turn);
-            play(s, s.turn, ids, this.name);
-          });
+          this.thinkAndPlay();
         }
         return;
     }
+  }
+
+  // ---------- bot thinking (search runs in a worker; the move lands after a natural-feeling delay) ----------
+
+  private decisionKey() {
+    const s = this.state;
+    return `${s.round}:${s.tricksPlayed}:${s.trick?.plays.length ?? -1}:${s.turn}`;
+  }
+
+  private thinkAndPlay() {
+    const key = this.decisionKey();
+    if (this.botThinking === key) return;
+    this.botThinking = key;
+    const seat = this.state.turn;
+    const started = Date.now();
+    const minDelay = (650 + Math.random() * 450) * PACE[this.settings.pace].bot;
+    void this.botMove(seat).then((ids) => {
+      reliableTimeout(() => {
+        const s = this.state;
+        // Ignore if the game moved on meanwhile (reset, seat handed back to a human, ...).
+        if (this.destroyed || this.decisionKey() !== key || !this.isBot(seat) || s.phase !== 'playing') return;
+        this.botThinking = null;
+        const move = ids && checkPlay(s, seat, ids) === null ? ids : botPlay(s, seat);
+        play(s, seat, move, this.name);
+        this.changed();
+      }, Math.max(0, minDelay - (Date.now() - started)));
+    });
+  }
+
+  private botMove(seat: number): Promise<string[] | null> {
+    if (this.worker === undefined) {
+      try {
+        this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
+        this.worker.onmessage = (e: MessageEvent<{ id: number; ids: string[] | null }>) => {
+          this.workerWaiting.get(e.data.id)?.(e.data.ids);
+          this.workerWaiting.delete(e.data.id);
+        };
+        this.worker.onerror = () => {
+          for (const fn of this.workerWaiting.values()) fn(null);
+          this.workerWaiting.clear();
+          this.worker = null;
+        };
+      } catch {
+        this.worker = null;
+      }
+    }
+    if (!this.worker) return Promise.resolve(botPlay(this.state, seat));
+    const id = ++this.workerSeq;
+    return new Promise((resolve) => {
+      this.workerWaiting.set(id, resolve);
+      this.worker!.postMessage({ id, state: this.state, seat });
+    });
   }
 
   // ---------- views ----------

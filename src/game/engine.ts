@@ -1,4 +1,4 @@
-import { BIG_JOKER, Card, makeDecks, points, shuffle, SMALL_JOKER, Suit, SUIT_GLYPH, SUITS, totalPoints } from './cards';
+import { BIG_JOKER, Card, makeDecks, points, randomInt, shuffle, SMALL_JOKER, Suit, SUIT_GLYPH, SUITS, totalPoints } from './cards';
 import { checkThrow, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
 
 export const NUM_PLAYERS = 4;
@@ -223,7 +223,7 @@ export function finalizeDeclaration(s: GameState): void {
     // Nobody declared: flip the kitty — the first suited card picks trump.
     const flip = s.kitty.find((c) => c.suit !== 'J');
     s.trumpSuit = flip ? (flip.suit as Suit) : 'NT';
-    if (s.dealer === null) s.dealer = 0;
+    if (s.dealer === null) s.dealer = randomInt(NUM_PLAYERS); // first round, nobody declared: random dealer
     pushEvent(
       s,
       'info',

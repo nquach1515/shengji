@@ -51,12 +51,21 @@ export function makeDecks(count: number): Card[] {
   return cards;
 }
 
+/** Uniform random integer in [0, n), from the browser's cryptographic RNG, without modulo bias. */
+export function randomInt(n: number): number {
+  const limit = Math.floor(0x100000000 / n) * n; // reject the uneven tail so every value is equally likely
+  const buf = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < limit) return buf[0] % n;
+  }
+}
+
+/** Fisher–Yates shuffle: every ordering is equally likely. */
 export function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
-  const rand = new Uint32Array(a.length);
-  crypto.getRandomValues(rand);
   for (let i = a.length - 1; i > 0; i--) {
-    const j = rand[i] % (i + 1);
+    const j = randomInt(i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;

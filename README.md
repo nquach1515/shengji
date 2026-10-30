@@ -48,3 +48,20 @@ Rules follow the standard game as described in [ShengJi+ (Berkeley EECS-2023-127
 the optional bidding phase (炒底) is not included.
 - Levels: attackers need 80 to take the deal (+1 level per 40 over 80); defenders gain 3 / 2 / 1 for
   0 / under 40 / under 80. Win by defending as dealers on Ace.
+
+## Bots and fairness testing
+
+`npm run eval <mode>` runs the evaluation harness in `scripts/eval.ts`:
+
+- `random`: statistical tests of the shuffle and deal. Every card's position over 200,000 shuffles, points and
+  joker odds per seat versus the exact hypergeometric distribution, and the random first-round dealer. The
+  shuffle is Fisher–Yates driven by `crypto.getRandomValues`, with no modulo bias.
+- `tourney [games]`: full-game tournaments with seats swapped every other game, scored by level rate (the
+  share of levels won, as in the ShengJi+ paper).
+- `audit [decisions] [deals]`: at random real positions, plays every sensible option out on many guesses of
+  the hidden cards, consistent with what the bot can know, and measures how many points the bot's move loses.
+- `dup [deals] [samples] [leads|all]`: duplicate match. Each deal is played twice with teams swapped, so card
+  luck cancels and only the decisions differ.
+
+Bots never look at hidden hands. They lead using determinized Monte Carlo search (`src/game/search.ts`,
+run in a Web Worker) and follow with a card-counting heuristic (`src/game/bot.ts`).
