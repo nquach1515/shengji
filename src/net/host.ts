@@ -39,6 +39,10 @@ const SAVE_KEY = 'sj-host-session';
 
 export type NetStatus = 'offline' | 'connecting' | 'online' | 'error';
 
+// Dev only: a running game keeps the engine/rules/bot code it started with, so hot-swapping them would mix
+// old rules with new UI. Force a full page reload instead (hosted tables resume from their saved state).
+if (import.meta.hot) import.meta.hot.accept(() => window.location.reload());
+
 interface Saved {
   code: string;
   state: GameState;
