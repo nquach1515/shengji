@@ -3,6 +3,7 @@ import { DeclareOption, GameEvent, Phase, RoundResult, Trick, TrumpSuit } from '
 
 export type Action =
   | { type: 'sit'; seat: number }
+  | { type: 'swap'; a: number; b: number }
   | { type: 'addBot'; seat: number }
   | { type: 'removeSeat'; seat: number }
   | { type: 'botify'; seat: number }

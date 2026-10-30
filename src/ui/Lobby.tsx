@@ -22,6 +22,8 @@ interface Props {
 export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
   const [copied, setCopied] = useState(false);
   const full = view.seats.every(Boolean);
+  // the seat across from you is your partner's
+  const partnerSeat = view.you === null ? null : (view.you + 2) % 4;
   const link = `${location.origin}${location.pathname}?room=${view.roomCode}`;
 
   const copy = async () => {
@@ -87,9 +89,16 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                         {!seat.online && ' · offline'}
                       </div>
                       {view.isHost && !seat.isHost && (
-                        <button className="btn small ghost" onClick={() => send({ type: 'removeSeat', seat: i })}>
-                          Remove
-                        </button>
+                        <div className="actions">
+                          {partnerSeat !== null && i !== partnerSeat && (
+                            <button className="btn small" onClick={() => send({ type: 'swap', a: i, b: partnerSeat })}>
+                              Make partner
+                            </button>
+                          )}
+                          <button className="btn small ghost" onClick={() => send({ type: 'removeSeat', seat: i })}>
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </motion.div>
                   ) : (
@@ -100,16 +109,16 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                       exit={{ opacity: 0 }}
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
                     >
-                      <div style={{ color: 'var(--ink-dim)', fontSize: 13 }}>Open seat</div>
+                      <div style={{ color: 'var(--ink-dim)', fontSize: 13 }}>
+                        {i === partnerSeat ? 'Partner seat' : 'Open seat'}
+                      </div>
                       <div className="actions">
                         {view.isHost && (
                           <button className="btn small" onClick={() => send({ type: 'addBot', seat: i })}>
                             + Bot
                           </button>
                         )}
-                        <button className="btn small ghost" onClick={() => send({ type: 'sit', seat: i })}>
-                          Sit
-                        </button>
+
                       </div>
                     </motion.div>
                   )}

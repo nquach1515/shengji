@@ -252,6 +252,13 @@ export class HostController {
         this.seats[a.seat] = this.seats[seat];
         this.seats[seat] = null;
         return null;
+      case 'swap': {
+        if (!isHost || s.phase !== 'lobby') return 'Only the host can rearrange seats in the lobby';
+        const { a: x, b: y } = a;
+        if (![x, y].every((i) => i >= 0 && i < NUM_PLAYERS)) return null;
+        [this.seats[x], this.seats[y]] = [this.seats[y], this.seats[x]];
+        return null;
+      }
       case 'addBot': {
         if (!isHost) return 'Only the host can add bots';
         if (this.seats[a.seat]) return 'Seat taken';

@@ -1,5 +1,5 @@
 import { BIG_JOKER, Card, makeDecks, points, shuffle, SMALL_JOKER, Suit, SUIT_GLYPH, SUITS, totalPoints } from './cards';
-import { checkThrow, effSuit, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
+import { checkThrow, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
 
 export const NUM_PLAYERS = 4;
 export const KITTY_SIZE = 8;
@@ -287,6 +287,7 @@ export function play(s: GameState, seat: number, cardIds: string[], seatName: (s
     const followed = cards.filter((c) => effSuit(c, ctx) === leadSuit).length;
     if (followed < cards.length && !s.voids[seat].includes(leadSuit)) s.voids[seat] = [...s.voids[seat], leadSuit];
   }
+  cards = sortHand(cards, ctx); // show every play in rank order, least to greatest
   s.played = [...s.played, ...cards];
   const played = new Set(cards.map((c) => c.id));
   s.hands[seat] = hand.filter((c) => !played.has(c.id));
