@@ -1,5 +1,5 @@
 import { BIG_JOKER, Card, makeDecks, points, shuffle, SMALL_JOKER, Suit, SUIT_GLYPH, SUITS, totalPoints } from './cards';
-import { checkThrow, decompose, effSuit, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
+import { checkThrow, effSuit, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
 
 export const NUM_PLAYERS = 4;
 export const KITTY_SIZE = 8;
@@ -48,6 +48,8 @@ export interface GameEvent {
   kind: 'declare' | 'throwFail' | 'trick' | 'info';
   seat?: number;
   text: string;
+  /** throwFail: the cards the leader had to take back (now public knowledge) */
+  cards?: Card[];
 }
 
 export interface GameState {
@@ -117,8 +119,8 @@ export function newGame(startLevel = 2): GameState {
   };
 }
 
-function pushEvent(s: GameState, kind: GameEvent['kind'], text: string, seat?: number) {
-  s.events = [...s.events.slice(-19), { id: ++s.eventSeq, kind, text, seat }];
+function pushEvent(s: GameState, kind: GameEvent['kind'], text: string, seat?: number, cards?: Card[]) {
+  s.events = [...s.events.slice(-19), { id: ++s.eventSeq, kind, text, seat, cards }];
 }
 
 export function startRound(s: GameState): void {
@@ -268,8 +270,12 @@ export function play(s: GameState, seat: number, cardIds: string[], seatName: (s
     const others = s.hands.filter((_, i) => i !== seat);
     const forced = checkThrow(cards, others, ctx);
     if (forced) {
+      // A throw is only allowed if nobody can beat any part of it; otherwise the leader must play the
+      // beatable part, and the cards they take back are revealed to everyone.
+      const keep = new Set(forced.cards.map((c) => c.id));
+      const returned = cards.filter((c) => !keep.has(c.id));
       cards = forced.cards;
-      pushEvent(s, 'throwFail', `${seatName(seat)}'s throw failed — forced to play the weakest part`, seat);
+      pushEvent(s, 'throwFail', `${seatName(seat)}'s throw was blocked — someone can beat part of it`, seat, returned);
     }
   }
   if (trick.plays.length > 0) {
@@ -318,8 +324,8 @@ function endRound(s: GameState, last: Trick): void {
   const kittyPoints = totalPoints(s.kitty);
   let kittyMultiplier = 0;
   if (teamOf(last.winner!) === attackers) {
-    const largest = decompose(last.plays[0].cards, ctxOf(s))[0];
-    kittyMultiplier = 2 * largest.size;
+    // Kitty points multiply by 2^(cards in the last trick's lead): single ×2, pair ×4, 2-pair tractor ×16, capped at ×64.
+    kittyMultiplier = 2 ** Math.min(6, last.plays[0].cards.length);
   }
   const kittyBonus = kittyPoints * kittyMultiplier;
   s.attackerPoints += kittyBonus;

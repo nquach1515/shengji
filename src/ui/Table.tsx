@@ -1,7 +1,7 @@
 import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
-import { DeclareOption, TrumpSuit } from '../game/engine';
+import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
 import { decompose, effSuit, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
 import { Action, PlayerView, SeatView } from '../net/protocol';
 import { CardBack, CardFace } from './Card';
@@ -126,6 +126,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
         <TrickArea view={view} ctx={ctx} size={size} />
         <DeclareSplash view={view} name={name} />
         <RoundSplash view={view} />
+        <ThrowSplash view={view} name={name} />
         <Emotes view={view} size={size} />
       </div>
 
@@ -678,7 +679,7 @@ function Toasts({ view }: { view: PlayerView }) {
     const fresh = view.events.filter((e) => e.id > seen.current);
     if (!fresh.length) return;
     seen.current = fresh[fresh.length - 1].id;
-    const add = fresh.map((e) => ({ id: `e${e.id}`, kind: e.kind, text: e.text }));
+    const add = fresh.filter((e) => e.kind !== 'throwFail').map((e) => ({ id: `e${e.id}`, kind: e.kind, text: e.text }));
     setItems((xs) => [...xs, ...add].slice(-3));
     for (const a of add) setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== a.id)), 2800);
   }, [view.events]);
@@ -854,7 +855,11 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       status = (
         <>
           <span>
-            {leading ? 'Your lead — a single, pair, tractor, or throw' : describeLead(lead!, ctx)}
+            {leading
+              ? isThrow
+                ? 'Throw — allowed only if no one can beat any part, or just the weakest part is played'
+                : 'Your lead — a single, pair, tractor, or throw'
+              : describeLead(lead!, ctx)}
             <span style={{ opacity: 0.7 }}> · {need ? `${selectedCount}/${need}` : `${selectedCount} selected`}</span>
           </span>
           {selectedCount > 0 && playError && (!need || selectedCount >= need) && <span className="err-inline">— {playError}</span>}
@@ -1080,6 +1085,7 @@ function useSounds(view: PlayerView, myTurn: boolean) {
     hand: view.hand.length,
     phase: view.phase,
     error: view.error?.id,
+    event: view.events[view.events.length - 1]?.id,
   });
   useEffect(() => {
     const p = prev.current;
@@ -1104,7 +1110,19 @@ function useSounds(view: PlayerView, myTurn: boolean) {
       setTimeout(() => (won ? sfx.win() : sfx.lose()), 300);
     }
     if (view.error && view.error.id !== p.error) sfx.error();
-    prev.current = { trickKey, plays, winner, decl, myTurn, hand: view.hand.length, phase: view.phase, error: view.error?.id };
+    const lastEvent = view.events[view.events.length - 1];
+    if (lastEvent?.kind === 'throwFail' && lastEvent.id !== p.event) sfx.error();
+    prev.current = {
+      trickKey,
+      plays,
+      winner,
+      decl,
+      myTurn,
+      hand: view.hand.length,
+      phase: view.phase,
+      error: view.error?.id,
+      event: view.events[view.events.length - 1]?.id,
+    };
   }, [view, myTurn]);
 }
 
@@ -1131,6 +1149,46 @@ function Voids({ voids }: { voids: string[] }) {
             {v === 'T' ? '主' : `${SUIT_GLYPH[v as keyof typeof SUIT_GLYPH]}\uFE0E`}
           </motion.span>
         ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Center announcement when a throw is blocked, showing the cards the leader had to take back. */
+function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => string }) {
+  const latest = [...view.events].reverse().find((e) => e.kind === 'throwFail');
+  const seen = useRef(latest?.id ?? 0);
+  const [shown, setShown] = useState<GameEvent | null>(null);
+  useEffect(() => {
+    if (!latest || latest.id <= seen.current) return;
+    seen.current = latest.id;
+    setShown(latest);
+    const t = setTimeout(() => setShown(null), 2600);
+    return () => clearTimeout(t);
+  }, [latest]);
+  return (
+    <div className="splash" style={{ top: '30%' }}>
+      <AnimatePresence>
+        {shown && (
+          <motion.div
+            key={shown.id}
+            className="plate throw-splash"
+            initial={{ opacity: 0, y: 16, scale: 0.85 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          >
+            <div className="t">Throw blocked</div>
+            <div className="s">
+              {shown.seat !== undefined ? name(shown.seat) : 'Leader'} {shown.seat === view.you ? 'take' : 'takes'} back:
+            </div>
+            <div className="cards">
+              {shown.cards?.map((c) => (
+                <CardFace key={c.id} card={c} />
+              ))}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

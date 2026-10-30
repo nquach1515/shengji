@@ -250,9 +250,10 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
       </ul>
       <h3>Playing tricks</h3>
       <ul>
-        <li>Lead a single, a pair, a tractor (consecutive pairs), or several unbeatable combos at once (a throw).</li>
+        <li>Lead a single, a pair, a tractor (consecutive pairs), or several combos of one suit at once (a throw).</li>
+        <li>A throw only stands if no one can beat any part of it. Otherwise only the beatable part is played, and the cards you take back are shown to everyone.</li>
         <li>Follow suit with the same number of cards, and match pairs/tractors when you can. If you're out of the suit, you may trump.</li>
-        <li>If attackers win the last trick, the kitty's points count double (or more for pairs and tractors).</li>
+        <li>If attackers win the last trick, they also win the kitty's points: ×2 for a single lead, ×4 for a pair, ×16 for a 2-pair tractor (up to ×64).</li>
       </ul>
       <button className="btn primary" onClick={onClose}>
         Got it

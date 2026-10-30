@@ -17,6 +17,8 @@ import {
 import { checkThrow, validateFollow, cardValue, decompose, trickWinner, TrumpCtx } from '../src/game/rules';
 import { Card } from '../src/game/cards';
 
+const names = (s: number) => `P${s}`;
+
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
 }
@@ -80,10 +82,35 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   const nt = declareOptions(g, 1).find((o) => o.suit === 'NT');
   assert(nt && declare(g, 1, nt.cardIds) === null && g.trumpSuit === 'NT', 'joker pair overrides to no trump');
 }
+// A throw anyone can beat is cut down to the beatable part, and the rest goes back to the leader's hand
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 0;
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  g.hands = [[C('S', 7), C('S', 13), C('C', 3)], [C('S', 14), C('C', 4)], [C('C', 5), C('C', 6)], [C('C', 8), C('C', 9)]];
+  g.trick = { leader: 0, plays: [], winner: null, points: 0 };
+  g.turn = 0;
+  assert(play(g, 0, ['0S7', '0S13'], names) === null, 'throw accepted for checking');
+  assert(g.trick!.plays[0].cards.length === 1 && g.trick!.plays[0].cards[0].id === '0S7', 'blocked throw plays only the weakest part');
+  assert(g.hands[0].some((c) => c.id === '0S13'), 'taken-back card returns to hand');
+  const ev = g.events[g.events.length - 1];
+  assert(ev.kind === 'throwFail' && ev.cards?.[0].id === '0S13', 'blocked throw reveals the returned card');
+  // ...but a throw nobody can beat stands
+  const h = newGame();
+  startRound(h);
+  h.dealer = 0;
+  h.trumpSuit = 'H';
+  h.phase = 'playing';
+  h.hands = [[C('S', 14), C('S', 13), C('S', 13, 1)], [C('S', 12), C('C', 4), C('C', 7)], [C('C', 5), C('C', 6), C('C', 9)], [C('C', 8), C('C', 10), C('C', 11)]];
+  h.trick = { leader: 0, plays: [], winner: null, points: 0 };
+  h.turn = 0;
+  assert(play(h, 0, ['0S14', '0S13', '1S13'], names) === null && h.trick!.plays[0].cards.length === 3, 'unbeatable throw stands');
+}
 console.log('rule checks passed');
 
 // --- full games: team 0 (seats 0, 2) plays the strong bot, team 1 a simple baseline ---
-const names = (s: number) => `P${s}`;
 let rounds = 0;
 let throwsFailed = 0;
 const wins = [0, 0];
