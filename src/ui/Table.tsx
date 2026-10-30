@@ -568,6 +568,8 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
                 {p.cards.map((c, i) => (
                   <motion.div
                     key={c.id}
+                    // a gap where the play switches suit, so off-suit filler cards stand apart
+                    className={i > 0 && effSuit(c, ctx) !== effSuit(p.cards[i - 1], ctx) ? 'suit-break' : undefined}
                     initial={{ rotateY: pos === 'bottom' ? 0 : 90 }}
                     animate={{ rotateY: 0 }}
                     transition={{ delay: 0.08 + i * 0.03, duration: 0.3 }}
@@ -1177,6 +1179,7 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
 function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: number) => string; onClose: () => void }) {
   const usTeam = (view.you ?? 0) % 2;
   const tricks = view.tricks.map((t, i) => ({ t, n: i + 1 })).reverse();
+  const histCtx: TrumpCtx = { suit: view.trumpSuit, rank: view.trumpRank };
   return (
     <Modal onClose={onClose} className="history">
       <h2>Tricks this round</h2>
@@ -1209,8 +1212,10 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
                     {i === 0 && <span className="tag">led</span>}
                   </div>
                   <div className="cards">
-                    {p.cards.map((c) => (
-                      <CardFace key={c.id} card={c} />
+                    {p.cards.map((c, i) => (
+                      <div key={c.id} className={`fan-slot ${i > 0 && effSuit(c, histCtx) !== effSuit(p.cards[i - 1], histCtx) ? 'suit-break' : ''}`}>
+                        <CardFace card={c} />
+                      </div>
                     ))}
                   </div>
                 </div>

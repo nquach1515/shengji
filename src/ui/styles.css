@@ -671,12 +671,18 @@ input { font: inherit; }
 .history-head .pts.us { color: #bff3e6; background: rgba(125, 220, 196, 0.14); border: 1px solid rgba(125, 220, 196, 0.4); }
 .history-head .pts.them { color: #ffd9c2; background: rgba(244, 160, 100, 0.14); border: 1px solid rgba(244, 160, 100, 0.4); }
 .history-plays { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.history-play { padding: 6px 8px 8px; border-radius: 10px; border: 1px solid transparent; }
+.history-play { padding: 6px 8px 8px; border-radius: 10px; border: 1px solid transparent; min-width: 0; overflow: hidden; }
 .history-play.won { border-color: rgba(232, 182, 76, 0.55); background: rgba(232, 182, 76, 0.07); }
 .history-play .who { font-size: 12px; color: var(--ink-dim); margin-bottom: 5px; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
-.history-play .cards { display: flex; }
+/* the fan squeezes to fit its column: each slot shrinks (cards overlap more) and the last card shows in full */
+.history-play .cards { display: flex; width: 100%; min-width: 0; }
+.history-play .cards .fan-slot { flex: 0 1 26px; min-width: 9px; }
+.history-play .cards .fan-slot:last-child { flex: 0 0 auto; }
 .history-play .cards .card { --cw: 56px; }
-.history-play .cards > * + * { margin-left: -31px; }
 @container stage (max-width: 720px) {
   .history-plays { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* where a play switches suit (e.g. trump or off-suit filler), leave a gap */
+.trick-play > .suit-break { margin-left: calc(var(--tw) * -0.2) !important; }
+.history-play .cards .fan-slot.suit-break { margin-left: 8px; }
