@@ -686,3 +686,10 @@ input { font: inherit; }
 /* where a play switches suit (e.g. trump or off-suit filler), leave a gap */
 .trick-play > .suit-break { margin-left: calc(var(--tw) * -0.2) !important; }
 .history-play .cards .fan-slot.suit-break { margin-left: 8px; }
+
+/* lobby: edit your own name */
+.name-edit { background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 8px; color: var(--ink); font-weight: 700; font-size: 15px; display: inline-flex; gap: 4px; align-items: center; max-width: 100%; }
+.name-edit:hover { background: rgba(232, 182, 76, 0.12); }
+.name-edit .you { color: var(--ink-dim); font-weight: 500; }
+.name-edit .pen { color: var(--gold-hi); font-size: 13px; }
+.name-form .input { padding: 6px 10px; font-size: 14px; text-align: center; width: 130px; }

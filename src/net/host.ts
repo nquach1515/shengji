@@ -190,7 +190,7 @@ export class HostController {
       const s = this.seats[existing]!;
       s.online = true;
       s.isBot = false;
-      s.name = name || s.name;
+      // keep a name they picked in the lobby; a reconnect re-sends the name they first joined with
       return true;
     }
     const empty = this.seats.findIndex((s) => s === null);
@@ -268,6 +268,14 @@ export class HostController {
         const { a: x, b: y } = a;
         if (![x, y].every((i) => i >= 0 && i < NUM_PLAYERS)) return null;
         [this.seats[x], this.seats[y]] = [this.seats[y], this.seats[x]];
+        return null;
+      }
+      case 'rename': {
+        if (seat === null) return 'You are not seated';
+        if (s.phase !== 'lobby') return 'Names are locked once the game starts';
+        const name = a.name.trim().slice(0, 16);
+        if (!name) return 'Name can’t be empty';
+        this.seats[seat]!.name = name;
         return null;
       }
       case 'addBot': {

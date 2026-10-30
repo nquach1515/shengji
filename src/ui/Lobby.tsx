@@ -79,10 +79,11 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}
                     >
                       <Avatar seat={seat} side={side} />
-                      <div className="nm">
-                        {seat.name}
-                        {i === view.you ? ' (you)' : ''}
-                      </div>
+                      {i === view.you ? (
+                        <NameEditor name={seat.name} onSave={(name) => send({ type: 'rename', name })} />
+                      ) : (
+                        <div className="nm">{seat.name}</div>
+                      )}
                       <div className="team-tag" style={{ color: side === 'us' ? 'var(--us)' : 'var(--them)' }}>
                         {side === 'us' ? 'Your team' : 'Opponents'}
                         {seat.isBot && ' · bot'}
@@ -183,5 +184,49 @@ export function NetBadge({ state, detail }: { state: string; detail: string }) {
       <span className="dot" style={{ background: state === 'online' ? '#7ee08f' : state === 'error' ? '#ff8f80' : '#f5cf5b' }} />
       {label}
     </div>
+  );
+}
+
+/** Your own name in the lobby, editable until the cards are dealt. */
+function NameEditor({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const save = () => {
+    const n = draft.trim();
+    if (n && n !== name) onSave(n);
+    setEditing(false);
+  };
+  if (!editing) {
+    return (
+      <button
+        className="nm name-edit"
+        title="Change your name"
+        onClick={() => {
+          setDraft(name);
+          setEditing(true);
+        }}
+      >
+        {name} <span className="you">(you)</span> <span className="pen">✎</span>
+      </button>
+    );
+  }
+  return (
+    <form
+      className="name-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <input
+        className="input"
+        value={draft}
+        maxLength={16}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+      />
+    </form>
   );
 }

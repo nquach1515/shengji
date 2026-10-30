@@ -55,10 +55,12 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const urlCode = useMemo(() => new URL(window.location.href).searchParams.get('room') ?? '', []);
   const saved = useMemo(() => loadSavedHost(), []);
   const [name, setName] = useState('');
-  const [code, setCode] = useState(urlCode);
+  const [code, setCode] = useState('');
   const [err, setErr] = useState('');
   const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal' });
   const [rules, setRules] = useState(false);
+  const inviteCode = /^[a-z]{4}$/i.test(urlCode) ? urlCode.toUpperCase() : '';
+  const [showInvite, setShowInvite] = useState(!!inviteCode);
 
   const go = (mode: StartMode) => {
     onStart(mode, name.trim().slice(0, 16) || 'Player');
@@ -74,6 +76,22 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   };
 
   const length = LENGTHS.find((l) => l.level === settings.startLevel)!;
+
+  if (showInvite) {
+    return (
+      <InviteJoin
+        code={inviteCode}
+        onJoin={(n) => onStart({ kind: 'join', code: inviteCode }, n.trim().slice(0, 16) || 'Player')}
+        onHome={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('room');
+          window.history.replaceState(null, '', url);
+          setCode('');
+          setShowInvite(false);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="home">
@@ -165,27 +183,16 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
           >
             <h3>Play with friends</h3>
             <p>Host a table and share the code — bots can fill any empty seat.</p>
-            {urlCode ? (
-              <button className="btn primary" onClick={join}>
-                Join table {code.toUpperCase()}
-              </button>
-            ) : (
-              <button className="btn primary" onClick={() => go({ kind: 'host' })}>
-                Host a table
-              </button>
-            )}
+            <button className="btn primary" onClick={() => go({ kind: 'host' })}>
+              Host a table
+            </button>
             {saved && (
               <button className="btn small" onClick={() => go({ kind: 'resume' })}>
                 Resume your table {saved.code}
               </button>
             )}
-            <div className="divider">{urlCode ? 'or host your own' : 'or join with a code'}</div>
-            {urlCode ? (
-              <button className="btn" onClick={() => go({ kind: 'host' })}>
-                Host a new table
-              </button>
-            ) : (
-              <div className="row">
+            <div className="divider">or join with a code</div>
+            <div className="row">
                 <input
                   className="input code grow"
                   value={code}
@@ -200,8 +207,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
                 <button className="btn" onClick={join} disabled={code.length !== 4}>
                   Join
                 </button>
-              </div>
-            )}
+            </div>
           </motion.div>
         </div>
 
@@ -241,5 +247,65 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
         Got it
       </button>
     </Modal>
+  );
+}
+
+/** Opened from an invite link: pick a name, then join that table. */
+function InviteJoin({ code, onJoin, onHome }: { code: string; onJoin: (name: string) => void; onHome: () => void }) {
+  const [name, setName] = useState('');
+  return (
+    <div className="home">
+      <div className="home-inner" style={{ width: 'min(420px, 100%)' }}>
+        <motion.div className="wordmark" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+          <div className="zh" style={{ fontSize: 'clamp(64px, 10cqh, 96px)' }}>升级</div>
+        </motion.div>
+        <motion.div
+          className="panel mode-card"
+          style={{ width: '100%', alignItems: 'center', textAlign: 'center' }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, type: 'spring', stiffness: 140, damping: 18 }}
+        >
+          <h3>You're invited to a table</h3>
+          <div className="room-code" style={{ margin: '4px 0 6px' }}>
+            {code.split('').map((ch, i) => (
+              <motion.div
+                key={i}
+                className="ch"
+                initial={{ rotateY: 90, opacity: 0 }}
+                animate={{ rotateY: 0, opacity: 1 }}
+                transition={{ delay: 0.2 + i * 0.08, type: 'spring', stiffness: 200, damping: 15 }}
+              >
+                {ch}
+              </motion.div>
+            ))}
+          </div>
+          <form
+            style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              onJoin(name);
+            }}
+          >
+            <input
+              className="input"
+              value={name}
+              maxLength={16}
+              autoFocus
+              placeholder="Your name"
+              onChange={(e) => setName(e.target.value)}
+              style={{ textAlign: 'center' }}
+            />
+            <button className="btn primary" type="submit">
+              Join table
+            </button>
+          </form>
+          <div className="foot">You can change your name in the lobby until the cards are dealt.</div>
+        </motion.div>
+        <button className="link" onClick={onHome}>
+          Go to the home page instead
+        </button>
+      </div>
+    </div>
   );
 }
