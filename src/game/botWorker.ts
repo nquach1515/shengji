@@ -3,11 +3,11 @@
 import { GameState } from './engine';
 import { searchPlay, SEARCH_SAMPLES } from './search';
 
-self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number }>) => {
-  const { id, state, seat } = e.data;
+self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; leadsOnly?: boolean }>) => {
+  const { id, state, seat, leadsOnly = true } = e.data;
   let ids: string[] | null = null;
   try {
-    ids = searchPlay(state, seat, SEARCH_SAMPLES, true);
+    ids = searchPlay(state, seat, SEARCH_SAMPLES, leadsOnly);
   } catch {
     ids = null;
   }

@@ -31,6 +31,26 @@ function discardCost(c: Card, ctx: TrumpCtx): number {
   return strength(c, ctx) * 3 + points(c) * 6;
 }
 
+/**
+ * Penalty for splitting pairs: playing one card of an identical pair you hold throws away a combination that can
+ * win pair leads and form tractors, which is worth much more than the card's rank suggests.
+ */
+function pairBreakCost(play: Card[], hand: Card[], ctx: TrumpCtx): number {
+  const inHand = new Map<string, number>();
+  for (const c of hand) inHand.set(cardKey(c), (inHand.get(cardKey(c)) ?? 0) + 1);
+  const inPlay = new Map<string, Card>();
+  const playedCount = new Map<string, number>();
+  for (const c of play) {
+    inPlay.set(cardKey(c), c);
+    playedCount.set(cardKey(c), (playedCount.get(cardKey(c)) ?? 0) + 1);
+  }
+  let cost = 0;
+  for (const [key, c] of inPlay) {
+    if ((inHand.get(key) ?? 0) >= 2 && playedCount.get(key) === 1) cost += 14 + cardValue(c, ctx) + (isTrump(c, ctx) ? 10 : 0);
+  }
+  return cost;
+}
+
 function pairsOf(cards: Card[]): Card[][] {
   const m = new Map<string, Card[]>();
   for (const c of cards) m.set(cardKey(c), [...(m.get(cardKey(c)) ?? []), c]);
@@ -54,13 +74,15 @@ function tractorsOf(cards: Card[], len: number, ctx: TrumpCtx): Card[][] {
 
 function fill(chosen: Card[], pool: Card[], n: number, ctx: TrumpCtx, preferPoints: boolean): Card[] {
   const ids = new Set(chosen.map((c) => c.id));
-  const rest = pool
-    .filter((c) => !ids.has(c.id))
-    .sort((a, b) =>
-      preferPoints
-        ? points(b) - points(a) || strength(a, ctx) - strength(b, ctx)
-        : discardCost(a, ctx) - discardCost(b, ctx),
-    );
+  const left = pool.filter((c) => !ids.has(c.id));
+  const count = new Map<string, number>();
+  for (const c of left) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);
+  const paired = (c: Card) => (count.get(cardKey(c)) ?? 0) >= 2;
+  const rest = left.sort((a, b) =>
+    preferPoints
+      ? points(b) - points(a) || Number(paired(a)) - Number(paired(b)) || strength(a, ctx) - strength(b, ctx)
+      : discardCost(a, ctx) + (paired(a) ? 40 : 0) - (discardCost(b, ctx) + (paired(b) ? 40 : 0)),
+  );
   return [...chosen, ...rest.slice(0, n - chosen.length)];
 }
 
@@ -295,7 +317,7 @@ function smartFollow(s: GameState, seat: number): Card[] {
   const partnerWinning = teamOf(winner) === teamOf(seat);
 
   const legal = candidates(hand, lead, ctx).filter((c) => c.length === lead.length && validateFollow(c, hand, lead, ctx) === null);
-  const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0);
+  const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0) + pairBreakCost(cards, hand, ctx);
   const pts = (cards: Card[]) => totalPoints(cards);
   const wins = (cards: Card[]) => trickWinner([...trick.plays, { seat, cards }], ctx) === seat;
   const pick = (list: Card[][], score: (c: Card[]) => number) => list.slice().sort((a, b) => score(a) - score(b))[0];

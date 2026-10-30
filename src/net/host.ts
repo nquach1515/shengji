@@ -331,7 +331,14 @@ export class HostController {
     switch (a.type) {
       case 'hint':
         if (s.phase === 'playing' && s.turn === seat && s.trick?.winner === null) {
-          this.hints.set(clientId, { id: ++this.errorSeq, cardIds: suggest(s, seat) });
+          // Hints use the full search (every decision, not just leads), computed in the worker.
+          const key = this.decisionKey();
+          void this.botMove(seat, false).then((ids) => {
+            if (this.destroyed || this.decisionKey() !== key) return;
+            const move = ids && checkPlay(this.state, seat, ids) === null ? ids : suggest(this.state, seat);
+            this.hints.set(clientId, { id: ++this.errorSeq, cardIds: move });
+            this.changed();
+          });
         } else if (s.phase === 'burying' && s.dealer === seat) {
           this.hints.set(clientId, { id: ++this.errorSeq, cardIds: botBury(s, seat) });
         }
@@ -428,7 +435,7 @@ export class HostController {
     });
   }
 
-  private botMove(seat: number): Promise<string[] | null> {
+  private botMove(seat: number, leadsOnly = true): Promise<string[] | null> {
     if (this.worker === undefined) {
       try {
         this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
@@ -449,7 +456,7 @@ export class HostController {
     const id = ++this.workerSeq;
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
-      this.worker!.postMessage({ id, state: this.state, seat });
+      this.worker!.postMessage({ id, state: this.state, seat, leadsOnly });
     });
   }
 

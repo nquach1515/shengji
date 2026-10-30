@@ -1,5 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay } from '../src/game/bot';
+import { searchPlay } from '../src/game/search';
 import { totalPoints } from '../src/game/cards';
 import {
   bury,
@@ -107,6 +108,28 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   h.trick = { leader: 0, plays: [], winner: null, points: 0 };
   h.turn = 0;
   assert(play(h, 0, ['0S14', '0S13', '1S13'], names) === null && h.trick!.plays[0].cards.length === 3, 'unbeatable throw stands');
+}
+// Following a trump single you can't usefully win: spend the lone trump, keep the trump pair together
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 1;
+  g.trumpRank = 2; // the 2s are level cards (trump); old bot split its trump 7s instead of spending one
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  g.hands = [
+    [C('H', 7), C('H', 7, 1), C('S', 2), C('S', 9), C('C', 6)],
+    [C('S', 3), C('C', 3), C('D', 3), C('D', 5), C('C', 8)],
+    [C('S', 6), C('C', 9), C('D', 7), C('D', 8), C('S', 8)],
+    [C('S', 5), C('C', 5), C('D', 9), C('D', 10), C('S', 11)],
+  ];
+  g.trick = { leader: 3, plays: [{ seat: 3, cards: [C('H', 14)] }], winner: null, points: 0 };
+  g.hands[3] = g.hands[3].slice(1);
+  g.turn = 0;
+  const heuristic = botPlay(g, 0);
+  assert(heuristic.length === 1 && heuristic[0] === '0S2', `heuristic keeps the 7s paired (played ${heuristic})`);
+  const searched = searchPlay(g, 0, 48);
+  assert(searched.length === 1 && searched[0] === '0S2', `search keeps the 7s paired (played ${searched})`);
 }
 console.log('rule checks passed');
 
