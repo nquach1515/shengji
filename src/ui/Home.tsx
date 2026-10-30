@@ -26,14 +26,6 @@ export const PACES: { pace: Pace; label: string }[] = [
   { pace: 'fast', label: 'Fast' },
 ];
 
-function loadName() {
-  try {
-    return localStorage.getItem('sj-name') ?? '';
-  } catch {
-    return '';
-  }
-}
-
 export function Segmented<T extends string | number>({
   options,
   value,
@@ -62,24 +54,14 @@ export function Segmented<T extends string | number>({
 export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => void }) {
   const urlCode = useMemo(() => new URL(window.location.href).searchParams.get('room') ?? '', []);
   const saved = useMemo(() => loadSavedHost(), []);
-  const [name, setName] = useState(loadName);
+  const [name, setName] = useState('');
   const [code, setCode] = useState(urlCode);
   const [err, setErr] = useState('');
   const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal' });
   const [rules, setRules] = useState(false);
 
   const go = (mode: StartMode) => {
-    const n = name.trim();
-    if (!n) {
-      setErr('Pick a name first');
-      return;
-    }
-    try {
-      localStorage.setItem('sj-name', n);
-    } catch {
-      /* ignore */
-    }
-    onStart(mode, n.slice(0, 16));
+    onStart(mode, name.trim().slice(0, 16) || 'Player');
   };
 
   const join = () => {
@@ -133,7 +115,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
             className="input"
             value={name}
             maxLength={16}
-            placeholder="e.g. Nick"
+            placeholder="Player"
             onChange={(e) => {
               setName(e.target.value);
               setErr('');
