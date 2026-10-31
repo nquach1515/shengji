@@ -696,3 +696,6 @@ input { font: inherit; }
 .name-edit .you { color: var(--ink-dim); font-weight: 500; }
 .name-edit .pen { color: var(--gold-hi); font-size: 13px; }
 .name-form .input { padding: 6px 10px; font-size: 14px; text-align: center; width: 130px; }
+
+/* app version on the home screen */
+.version { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: -4px; }

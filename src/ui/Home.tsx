@@ -214,6 +214,10 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
         <button className="link" onClick={() => setRules(true)}>
           How to play
         </button>
+        <div className="version" title={`Built ${new Date(__BUILD_TIME__).toLocaleString()}`}>
+          v{__APP_VERSION__} · build {__BUILD_SHA__} ·{' '}
+          {new Date(__BUILD_TIME__).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </div>
       </div>
       <AnimatePresence>{rules && <RulesModal onClose={() => setRules(false)} />}</AnimatePresence>
     </div>
