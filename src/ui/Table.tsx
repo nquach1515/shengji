@@ -1191,13 +1191,17 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
   const latest = [...view.events].reverse().find((e) => e.kind === 'throwFail');
   const seen = useRef(latest?.id ?? 0);
   const [shown, setShown] = useState<GameEvent | null>(null);
+  // Keyed on the event id, not the event object: online players get a fresh copy of every event on each update,
+  // and re-running here used to cancel the hide timer, leaving the panel stuck on screen.
+  const latestId = latest?.id;
   useEffect(() => {
     if (!latest || latest.id <= seen.current) return;
     seen.current = latest.id;
     setShown(latest);
     const t = setTimeout(() => setShown(null), 2600);
     return () => clearTimeout(t);
-  }, [latest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestId]);
   return (
     <div className="splash" style={{ top: '30%' }}>
       <AnimatePresence>
