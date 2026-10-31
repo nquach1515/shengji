@@ -9,9 +9,9 @@
  * hidden hands — only at random guesses of them.
  */
 import { botPlay, candidates } from './bot';
-import { Card, cardKey, makeDecks, shuffle } from './cards';
+import { Card, cardKey, makeDecks, points, shuffle } from './cards';
 import { checkPlay, collectTrick, ctxOf, GameState, play } from './engine';
-import { decompose, effSuit, trickWinner } from './rules';
+import { cardValue, decompose, effSuit, trickWinner } from './rules';
 import { knownLocations } from './info';
 
 const noName = () => '';
@@ -231,6 +231,50 @@ export function feedTrickMove(s: GameState, seat: number): string[] | null {
   if (trick.plays.length === 0) return null;
   if (trickWinner(trick.plays, ctxOf(s)) !== (seat + 2) % 4) return null;
   return settledTrickMove(s, seat);
+}
+
+/**
+ * Never follow with a higher card than needed: swap each card of the move for a lower card of the same suit from the
+ * hand when that's legal, gives the same points, doesn't split a pair, and doesn't change who's winning the trick.
+ * The search scores moves by noisy simulated futures, so it sometimes can't tell a 7 from a 2 — but keeping the 7
+ * is never worse.
+ */
+export function keepHighCards(s: GameState, seat: number, ids: string[]): string[] {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return ids;
+  const ctx = ctxOf(s);
+  const hand = s.hands[seat];
+  const count = (cards: Card[], c: Card) => cards.filter((x) => cardKey(x) === cardKey(c)).length;
+  const winnerWith = (move: string[]) =>
+    trickWinner([...trick.plays, { seat, cards: hand.filter((c) => move.includes(c.id)) }], ctx);
+  const target = winnerWith(ids);
+  let move = [...ids];
+  for (let changed = true; changed; ) {
+    changed = false;
+    const cards = hand.filter((c) => move.includes(c.id)).sort((a, b) => cardValue(b, ctx) - cardValue(a, ctx));
+    for (const x of cards) {
+      if (count(cards, x) > 1) continue; // part of a pair we're playing
+      const lower = hand
+        .filter(
+          (y) =>
+            !move.includes(y.id) &&
+            effSuit(y, ctx) === effSuit(x, ctx) &&
+            cardValue(y, ctx) < cardValue(x, ctx) &&
+            points(y) === points(x) &&
+            count(hand, y) === 1,
+        )
+        .sort((a, b) => cardValue(a, ctx) - cardValue(b, ctx));
+      for (const y of lower) {
+        const next = move.map((id) => (id === x.id ? y.id : id));
+        if (checkPlay(s, seat, next) || winnerWith(next) !== target) continue;
+        move = next;
+        changed = true;
+        break;
+      }
+      if (changed) break;
+    }
+  }
+  return move;
 }
 
 /**

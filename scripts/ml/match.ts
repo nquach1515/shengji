@@ -6,7 +6,7 @@ import { botBury, botDeclare, botPlay } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
-import { feedTrickMove, hopelessTrickMove, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
+import { feedTrickMove, hopelessTrickMove, keepHighCards, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 const configs: Record<string, Policy> = {
@@ -20,6 +20,8 @@ const configs: Record<string, Policy> = {
   'search+learned+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
   // narrower: only when partner is winning and no opponent plays after us — feed points
   'search+learned+feed': (s, seat) => feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
+  // plus: never follow with a higher card than needed
+  'search+learned+feed+keep': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat))),
   // plus: when nothing can win the trick and partner isn't winning, dump with the heuristic
   'search+learned+settled+hopeless': (s, seat) =>
     settledTrickMove(s, seat) ?? hopelessTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),

@@ -7,13 +7,13 @@
 // +8.8 +/- 1.8 points per round.
 import { GameState } from './engine';
 import { learnedPlay } from './policy';
-import { searchPlayTimed, feedTrickMove } from './search';
+import { feedTrickMove, keepHighCards, searchPlayTimed } from './search';
 
 self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; budgetMs: number }>) => {
   const { id, state, seat, budgetMs } = e.data;
   let ids: string[] | null = null;
   try {
-    ids = feedTrickMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), 32);
+    ids = keepHighCards(state, seat, feedTrickMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), 32));
   } catch {
     ids = null;
   }
