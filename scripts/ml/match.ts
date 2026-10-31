@@ -1,0 +1,52 @@
+// Duplicate match between two bot configurations: every deal is played twice from the identical position with the
+// teams swapped, so card luck cancels and only decisions differ. Bots receive redacted states only.
+//   npx tsx scripts/ml/match.ts <A> <B> [deals]   configs: heuristic | search-leads | learned | learned-leads | learned+search-leads
+import { botBury, botDeclare, botPlay } from '../../src/game/bot';
+import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
+import { redactFor } from '../../src/game/info';
+import { learnedPlay } from '../../src/game/policy';
+import { searchPlay, SEARCH_SAMPLES } from '../../src/game/search';
+
+type Policy = (s: GameState, seat: number) => string[];
+const configs: Record<string, Policy> = {
+  heuristic: botPlay,
+  'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
+  learned: learnedPlay,
+  'learned-leads': (s, seat) => (s.trick!.plays.length === 0 ? learnedPlay(s, seat) : botPlay(s, seat)),
+  'learned+search-leads': (s, seat) => (s.trick!.plays.length === 0 ? searchPlay(s, seat, SEARCH_SAMPLES, true) : learnedPlay(s, seat)),
+};
+const [a, b] = [process.argv[2], process.argv[3]];
+const deals = Number(process.argv[4] ?? 200);
+if (!configs[a] || !configs[b]) throw new Error(`configs: ${Object.keys(configs).join(', ')}`);
+const nm = () => '';
+const advs: number[] = [];
+const t0 = Date.now();
+for (let i = 0; i < deals; i++) {
+  const base = newGame();
+  startRound(base);
+  while (base.phase === 'dealing') {
+    const seat = dealOne(base, 0);
+    const o = botDeclare(redactFor(base, seat), seat);
+    if (o) declare(base, seat, o.cardIds);
+  }
+  finalizeDeclaration(base);
+  bury(base, base.dealer!, botBury(redactFor(base, base.dealer!), base.dealer!));
+  const run = (aTeam: number) => {
+    const s: GameState = structuredClone(base);
+    while (s.phase === 'playing') {
+      const t = s.turn;
+      const ids = configs[t % 2 === aTeam ? a : b](redactFor(s, t), t);
+      if (play(s, t, ids, nm)) throw new Error('illegal move');
+      if (s.trick!.winner !== null) collectTrick(s, nm);
+    }
+    return (s.dealer! % 2 === 0 ? -1 : 1) * s.result!.attackerPoints; // team 0's view
+  };
+  advs.push((run(0) - run(1)) / 2);
+  if ((i + 1) % 50 === 0) console.error(`  ${i + 1}/${deals} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+}
+const mean = advs.reduce((t, x) => t + x, 0) / deals;
+const sd = Math.sqrt(advs.reduce((t, x) => t + (x - mean) ** 2, 0) / (deals - 1));
+console.log(
+  `${a} vs ${b}, ${deals} duplicate deals: ${mean >= 0 ? '+' : ''}${mean.toFixed(2)} ± ${((1.96 * sd) / Math.sqrt(deals)).toFixed(2)} ` +
+    `points/round for ${a}; better on ${advs.filter((x) => x > 0).length}, worse on ${advs.filter((x) => x < 0).length}`,
+);

@@ -8,11 +8,12 @@ import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, n
 import { decisionContext, moveFeatures } from '../src/game/features';
 import { redactFor } from '../src/game/info';
 import { determinize, moveOptions, searchPlay } from '../src/game/search';
+import { learnedPlay } from '../src/game/policy';
 
 const nm = () => '';
 const games = Number(process.argv[2] ?? 40);
 const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
-const checks = { plays: 0, bury: 0, declare: 0, features: 0, search: 0 };
+const checks = { plays: 0, learned: 0, bury: 0, declare: 0, features: 0, search: 0 };
 const leaks: string[] = [];
 
 /** Another possible world: same public information, hidden cards re-dealt (seat's own hand untouched). */
@@ -46,6 +47,10 @@ for (let g = 0; g < games; g++) {
     checks.plays++;
     if (!same(real, red)) leaks.push(`move differs on redacted state (round trick ${s.tricksPlayed})`);
     if (!same(real, altMove)) leaks.push(`move differs when hidden cards are re-dealt (trick ${s.tricksPlayed})`);
+    // The learned model too.
+    checks.learned++;
+    if (!same(learnedPlay(s, seat), learnedPlay(alt, seat)) || !same(learnedPlay(s, seat), learnedPlay(redactFor(s, seat), seat)))
+      leaks.push(`learned model's move depends on hidden cards (trick ${s.tricksPlayed})`);
     // Model features for every option must not depend on hidden cards either.
     const opts = moveOptions(s, seat);
     const dcReal = decisionContext(s, seat, opts[0]);
@@ -66,7 +71,7 @@ for (let g = 0; g < games; g++) {
   }
 }
 console.log(
-  `checked ${checks.plays} moves (each vs. redacted and re-dealt worlds), ${checks.features} move-feature vectors, ` +
+  `checked ${checks.plays} heuristic + ${checks.learned} learned-model moves (each vs. redacted and re-dealt worlds), ${checks.features} move-feature vectors, ` +
     `${checks.bury} burials, ${checks.declare} declaration decisions, ${checks.search} searches on redacted state`,
 );
 if (leaks.length) {

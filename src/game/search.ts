@@ -22,6 +22,8 @@ const noName = () => '';
  * about as much as searching every move, at a fraction of the cost. Follows use the heuristic bot.
  */
 export const SEARCH_SAMPLES = 48;
+/** Hints get a deeper search than bots: one human decision at a time, run in the background worker. */
+export const HINT_SAMPLES = 96;
 const SUITS = ['S', 'H', 'C', 'D', 'T'];
 
 export function cloneState(s: GameState): GameState {
@@ -122,19 +124,39 @@ export function rollout(d: GameState, seat: number, move: string[]): number {
   return attacking ? d.result!.attackerPoints : -d.result!.attackerPoints;
 }
 
-/** The search bot's move. Falls back to the heuristic bot if there's nothing to decide or search fails. */
-export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false): string[] {
-  if (leadsOnly && s.trick!.plays.length > 0) return botPlay(s, seat);
+/**
+ * The search bot's move. `prior` is the move to keep unless the search finds a clearly better one (defaults to the
+ * heuristic bot's choice). "Clearly better" is judged on paired results over the same sampled deals: the
+ * alternative must win by more than 1.5 standard errors of the difference, so noise alone won't overturn the prior.
+ */
+export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[]): string[] {
+  if (leadsOnly && s.trick!.plays.length > 0) return prior ?? botPlay(s, seat);
   const options = moveOptions(s, seat);
+  const keyOf = (ids: string[]) => [...ids].sort().join(',');
+  let start = 0;
+  if (prior) {
+    start = options.findIndex((m) => keyOf(m) === keyOf(prior));
+    if (start < 0) {
+      options.push(prior);
+      start = options.length - 1;
+    }
+  }
   if (options.length === 1) return options[0];
   try {
     const deals = Array.from({ length: samples }, () => determinize(s, seat));
-    const means = options.map((m) => deals.reduce((t, d) => t + rollout(cloneState(d), seat, m), 0) / samples);
-    // Prefer the heuristic move unless another option is genuinely better (guards against noise).
-    let best = 0;
-    for (let i = 1; i < options.length; i++) if (means[i] > means[best] + 0.5) best = i;
+    const scores = options.map((m) => deals.map((d) => rollout(cloneState(d), seat, m)));
+    const mean = (xs: number[]) => xs.reduce((t, x) => t + x, 0) / xs.length;
+    let best = start;
+    for (let i = 0; i < options.length; i++) {
+      if (i === best) continue;
+      const diff = scores[i].map((x, k) => x - scores[best][k]);
+      const m = mean(diff);
+      const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, diff.length - 1) / diff.length);
+      // Hints (with a prior) need a significant win; the bots keep the simple margin they were tested with.
+      if (m > (prior ? Math.max(0.5, 1.5 * se) : 0.5)) best = i;
+    }
     return options[best];
   } catch {
-    return options[0];
+    return options[start];
   }
 }

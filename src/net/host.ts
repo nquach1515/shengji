@@ -339,7 +339,7 @@ export class HostController {
         if (s.phase === 'playing' && s.turn === seat && s.trick?.winner === null) {
           // Hints use the full search (every decision, not just leads), computed in the worker.
           const key = this.decisionKey();
-          void this.botMove(seat, false).then((ids) => {
+          void this.botMove(seat, 'hint').then((ids) => {
             if (this.destroyed || this.decisionKey() !== key) return;
             const move = ids && checkPlay(this.state, seat, ids) === null ? ids : suggest(redactFor(this.state, seat), seat);
             this.hints.set(clientId, { id: ++this.errorSeq, cardIds: move });
@@ -441,7 +441,7 @@ export class HostController {
     });
   }
 
-  private botMove(seat: number, leadsOnly = true): Promise<string[] | null> {
+  private botMove(seat: number, mode: 'bot' | 'hint' = 'bot'): Promise<string[] | null> {
     if (this.worker === undefined) {
       try {
         this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
@@ -463,7 +463,7 @@ export class HostController {
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
       // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
-      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, leadsOnly });
+      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, mode });
     });
   }
 

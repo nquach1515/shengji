@@ -63,10 +63,19 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
     });
   }, [view.hand]);
   const hintId = view.hint?.id;
+  const [hintPending, setHintPending] = useState(false);
   useEffect(() => {
+    setHintPending(false);
     if (view.hint) setSelected(new Set(view.hint.cardIds));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hintId]);
+  // A hint for an old turn is dropped by the host; don't leave the button spinning.
+  useEffect(() => setHintPending(false), [view.turn, view.tricksPlayed, view.phase]);
+  const askHint = () => {
+    setHintPending(true);
+    send({ type: 'hint' });
+    setTimeout(() => setHintPending(false), 6000);
+  };
   useEffect(() => setSelected(new Set()), [view.phase, view.round]);
 
   const myTurn =
@@ -157,6 +166,8 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
             isThrow={isThrow}
             onPlay={doPlay}
             onClear={() => setSelected(new Set())}
+            onHint={askHint}
+            hintPending={hintPending}
           />
         </div>
         <Hand cards={view.hand} ctx={ctx} selected={selected} onChange={setSelected} dealing={view.phase === 'dealing'} />
@@ -739,6 +750,8 @@ interface BarProps {
   isThrow: boolean;
   onPlay: () => void;
   onClear: () => void;
+  onHint: () => void;
+  hintPending: boolean;
 }
 
 function declareLabel(o: DeclareOption) {
@@ -757,7 +770,7 @@ function describeLead(lead: Card[], ctx: TrumpCtx): string {
   return `Follow ${shape} in ${where}`;
 }
 
-function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playError, isThrow, onPlay, onClear }: BarProps) {
+function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playError, isThrow, onPlay, onClear, onHint, hintPending }: BarProps) {
   const me = view.you;
   let status: React.ReactNode = null;
   let buttons: React.ReactNode = null;
@@ -848,8 +861,14 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       );
       buttons = (
         <>
-          <button className="btn small" onClick={() => send({ type: 'hint' })}>
-            Hint
+          <button className="btn small" onClick={onHint} disabled={hintPending} title="The best move found by the trained model plus a deep search">
+            {hintPending ? (
+              <>
+                <span className="spinner" /> Thinking
+              </>
+            ) : (
+              'Hint'
+            )}
           </button>
           <button className="btn small" onClick={onClear} disabled={selectedCount === 0}>
             Clear
