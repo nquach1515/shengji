@@ -1,5 +1,6 @@
 import { DataConnection, Peer } from 'peerjs';
 import { HostController, NetStatus } from './host';
+import { iceServers, relayConfigured } from './ice';
 import { Action, ClientMsg, HostMsg, PEER_PREFIX, PlayerView } from './protocol';
 
 /** What the UI talks to — either the in-browser host, or a remote host over WebRTC. */
@@ -80,7 +81,11 @@ export class RemoteConnection implements GameConnection {
   }
 
   private start() {
-    const peer = new Peer({ debug: 0 });
+    void iceServers().then((servers) => !this.left && this.startPeer(servers));
+  }
+
+  private startPeer(servers: RTCIceServer[]) {
+    const peer = new Peer({ debug: 0, config: { iceServers: servers } });
     this.peer = peer;
     peer.on('open', () => this.connect());
     peer.on('error', (err) => {
@@ -102,7 +107,20 @@ export class RemoteConnection implements GameConnection {
     if (!this.peer || this.left) return;
     const conn = this.peer.connect(PEER_PREFIX + this.code, { reliable: true });
     this.conn = conn;
+    // If no connection forms, say so instead of spinning forever (usually a network that needs a relay).
+    const stuck = setTimeout(() => {
+      if (conn.open || this.left) return;
+      this.setStatus(
+        'error',
+        relayConfigured()
+          ? 'Still trying to reach the host — retrying…'
+          : "Can't reach the host from this network (common on cellular data). Try Wi-Fi — retrying…",
+      );
+      conn.close();
+      this.retry(3000);
+    }, 15000);
     conn.on('open', () => {
+      clearTimeout(stuck);
       conn.send({ t: 'hello', clientId: this.clientId, name: this.name } satisfies ClientMsg);
       this.setStatus('online', '');
     });

@@ -23,6 +23,7 @@ import { totalPoints } from '../game/cards';
 import { Action, ClientMsg, HostMsg, Pace, PEER_PREFIX, PlayerView, Settings } from './protocol';
 import { reliableTimeout } from './timer';
 import { redactFor } from '../game/info';
+import { iceServers } from './ice';
 
 export interface SeatInfo {
   clientId: string;
@@ -125,7 +126,11 @@ export class HostController {
 
   private openPeer(attempt: number) {
     this.status = 'connecting';
-    const peer = new Peer(PEER_PREFIX + this.code, { debug: 0 });
+    void iceServers().then((servers) => !this.destroyed && this.startPeer(servers, attempt));
+  }
+
+  private startPeer(servers: RTCIceServer[], attempt: number) {
+    const peer = new Peer(PEER_PREFIX + this.code, { debug: 0, config: { iceServers: servers } });
     this.peer = peer;
     peer.on('open', () => {
       this.status = 'online';
