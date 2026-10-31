@@ -331,8 +331,8 @@ function endRound(s: GameState, last: Trick): void {
   const kittyPoints = totalPoints(s.kitty);
   let kittyMultiplier = 0;
   if (teamOf(last.winner!) === attackers) {
-    // Kitty points multiply by 2^(cards in the last trick's lead): single ×2, pair ×4, 2-pair tractor ×16, capped at ×64.
-    kittyMultiplier = 2 ** Math.min(6, last.plays[0].cards.length);
+    // Kitty points are doubled, whatever the last trick's lead was.
+    kittyMultiplier = 2;
   }
   const kittyBonus = kittyPoints * kittyMultiplier;
   s.attackerPoints += kittyBonus;
