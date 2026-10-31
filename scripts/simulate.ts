@@ -1,6 +1,7 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay } from '../src/game/bot';
-import { searchPlay } from '../src/game/search';
+import { searchPlay, settledTrickMove } from '../src/game/search';
+import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
   bury,
@@ -98,7 +99,21 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   assert(g.hands[0].some((c) => c.id === '0S13'), 'taken-back card returns to hand');
   const ev = g.events[g.events.length - 1];
   assert(ev.kind === 'throwFail' && ev.cards?.[0].id === '0S13', 'blocked throw reveals the returned card');
-  // ...but a throw nobody can beat stands
+  // House rule: a player out of the suit who holds a trump blocks a throw of singles
+{
+  const g2 = newGame();
+  startRound(g2);
+  g2.dealer = 0;
+  g2.trumpSuit = 'C';
+  g2.trumpRank = 4;
+  g2.phase = 'playing';
+  g2.hands = [[C('H', 10), C('H', 11), C('S', 3)], [C('S', 5), C('C', 6)], [C('S', 6), C('S', 7)], [C('S', 8), C('S', 9)]];
+  g2.trick = { leader: 0, plays: [], winner: null, points: 0 };
+  g2.turn = 0;
+  assert(play(g2, 0, ['0H10', '0H11'], names) === null, 'throw submitted');
+  assert(g2.trick!.plays[0].cards.length === 1, 'throw blocked because seat 1 is out of hearts and holds a trump');
+}
+// ...but a throw nobody can beat stands
   const h = newGame();
   startRound(h);
   h.dealer = 0;
@@ -130,6 +145,35 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   assert(heuristic.length === 1 && heuristic[0] === '0S2', `heuristic keeps the 7s paired (played ${heuristic})`);
   const searched = searchPlay(g, 0, 48);
   assert(searched.length === 1 && searched[0] === '0S2', `search keeps the 7s paired (played ${searched})`);
+}
+// Last to play with partner's pair winning: feed the K♦ (10 pts), don't throw away 4♦7♦ (reported from a real game)
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 1;
+  g.trumpRank = 2;
+  g.trumpSuit = 'S';
+  g.phase = 'playing';
+  g.hands = [
+    [C('D', 4), C('D', 7), C('D', 13), C('D', 14), C('C', 5), C('H', 9)],
+    [C('C', 3), C('C', 4), C('H', 3), C('H', 4)],
+    [C('C', 6), C('C', 7), C('H', 6), C('H', 7)],
+    [C('C', 8), C('C', 9), C('H', 8), C('H', 10)],
+  ];
+  g.trick = {
+    leader: 1,
+    plays: [
+      { seat: 1, cards: [C('D', 11), C('D', 11, 1)] },
+      { seat: 2, cards: [C('D', 12), C('D', 12, 1)] },
+      { seat: 3, cards: [C('D', 3), C('D', 4, 1)] },
+    ],
+    winner: null,
+    points: 0,
+  };
+  g.played = g.trick.plays.flatMap((p) => p.cards);
+  g.turn = 0;
+  const m = settledTrickMove(redactFor(g, 0), 0);
+  assert(m !== null && m.includes('0D13'), `last to play behind partner's winning pair: feed the K (played ${m})`);
 }
 console.log('rule checks passed');
 

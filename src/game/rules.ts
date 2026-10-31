@@ -131,6 +131,14 @@ function suitCards(cards: Card[], suit: EffSuit, ctx: TrumpCtx): Card[] {
 /** Can some combination in `hand` (restricted to `suit`) beat component `comp`? */
 function beatable(comp: Component, hand: Card[], suit: EffSuit, ctx: TrumpCtx): boolean {
   const cards = suitCards(hand, suit, ctx);
+  // House rule: a player who is out of the suit can block a throw with trumps that match a component's shape
+  // (any trump for a single, a trump pair for a pair, a trump tractor for a tractor).
+  if (cards.length === 0 && suit !== 'T') {
+    const trumps = suitCards(hand, 'T', ctx);
+    if (comp.kind === 'single') return trumps.length > 0;
+    if (comp.kind === 'pair') return pairsAndSingles(trumps).pairs.length > 0;
+    return longestTractor(trumps, ctx) >= comp.len;
+  }
   if (comp.kind === 'single') return cards.some((c) => cardValue(c, ctx) > comp.top);
   if (comp.kind === 'pair') {
     return pairsAndSingles(cards).pairs.some((p) => cardValue(p[0], ctx) > comp.top);

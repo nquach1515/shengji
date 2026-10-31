@@ -11,7 +11,7 @@
 import { botPlay, candidates } from './bot';
 import { Card, cardKey, makeDecks, shuffle } from './cards';
 import { checkPlay, collectTrick, ctxOf, GameState, play } from './engine';
-import { decompose, effSuit } from './rules';
+import { decompose, effSuit, trickWinner } from './rules';
 import { knownLocations } from './info';
 
 const noName = () => '';
@@ -203,4 +203,54 @@ export function searchPlayTimed(
     if (m > Math.max(0.5, 1.5 * se)) best = i;
   }
   return options[best];
+}
+
+/**
+ * When no opponent plays after `seat` in this trick, the trick's outcome is already settled by what's on the table,
+ * so there's nothing to simulate: feed the most points when our team is winning, give the fewest when we can't win.
+ * The card-counting heuristic does exactly this (it also avoids splitting pairs and wasting trumps). Search and the
+ * learned model can blur a certain gain now with noisy guesses about later tricks, so they defer to it here.
+ */
+export function settledTrickMove(s: GameState, seat: number): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return null;
+  const played = new Set(trick.plays.map((p) => p.seat));
+  for (let i = 1; i < 4; i++) {
+    const x = (seat + i) % 4;
+    if (!played.has(x) && x % 2 !== seat % 2) return null;
+  }
+  return botPlay(s, seat);
+}
+
+/**
+ * When no legal move wins the trick right now and our partner isn't currently winning it, this is a pure discard:
+ * the card-counting heuristic dumps the cheapest cards (protecting pairs, trumps and points). The learned model has a
+ * blind spot here (it sometimes throws a higher pair), and the cost only shows up tricks later — too noisy for the
+ * search to catch — so defer to the heuristic.
+ */
+export function hopelessTrickMove(s: GameState, seat: number): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return null;
+  const ctx = ctxOf(s);
+  if (trickWinner(trick.plays, ctx) % 2 === seat % 2) return null;
+  const canWin = moveOptions(s, seat).some((m) => {
+    const cards = s.hands[seat].filter((c) => m.includes(c.id));
+    return trickWinner([...trick.plays, { seat, cards }], ctx) === seat;
+  });
+  return canWin ? null : botPlay(s, seat);
+}
+
+/**
+ * The starting move ("prior") the search checks. Normally the learned model's move, but if that move would leave the
+ * trick with the opponents, use the card-counting heuristic's instead: when you're not winning a trick, the job is to
+ * lose as little as possible (no points to the opponents, keep pairs and high trumps), which the heuristic does
+ * reliably and the model sometimes doesn't.
+ */
+export function priorMove(s: GameState, seat: number, learned: string[]): string[] {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return learned;
+  const ctx = ctxOf(s);
+  const cards = s.hands[seat].filter((c) => learned.includes(c.id));
+  const winner = trickWinner([...trick.plays, { seat, cards }], ctx);
+  return winner % 2 === seat % 2 ? learned : botPlay(s, seat);
 }

@@ -6,7 +6,7 @@ import { botBury, botDeclare, botPlay } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
-import { searchPlay, SEARCH_SAMPLES } from '../../src/game/search';
+import { hopelessTrickMove, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 const configs: Record<string, Policy> = {
@@ -16,6 +16,15 @@ const configs: Record<string, Policy> = {
   'learned-leads': (s, seat) => (s.trick!.plays.length === 0 ? learnedPlay(s, seat) : botPlay(s, seat)),
   // the trained model proposes; a 64-deal search checks every alternative and overrides only on a clear win
   'search+learned': (s, seat) => searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
+  // plus: when no opponent plays after us, the trick is settled — take the certain result
+  'search+learned+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
+  // plus: when nothing can win the trick and partner isn't winning, dump with the heuristic
+  'search+learned+settled+hopeless': (s, seat) =>
+    settledTrickMove(s, seat) ?? hopelessTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
+  // the model's move unless it leaves the trick with the opponents, then the heuristic's; plus the settled-trick rule
+  'search+prior+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, priorMove(s, seat, learnedPlay(s, seat))),
+  // alternative: let the search check the heuristic's move instead of the model's
+  'search+heuristic+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, botPlay(s, seat)),
   'learned+search-leads': (s, seat) => (s.trick!.plays.length === 0 ? searchPlay(s, seat, SEARCH_SAMPLES, true) : learnedPlay(s, seat)),
 };
 const [a, b] = [process.argv[2], process.argv[3]];

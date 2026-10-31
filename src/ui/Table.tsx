@@ -879,7 +879,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
           <span>
             {leading
               ? isThrow
-                ? 'Throw — allowed only if no one can beat any part, or just the weakest part is played'
+                ? 'Throw — blocked if anyone can beat or trump any part; then just the weakest part is played'
                 : 'Your lead — a single, pair, tractor, or throw'
               : describeLead(lead!, ctx)}
             <span style={{ opacity: 0.7 }}> · {need ? `${selectedCount}/${need}` : `${selectedCount} selected`}</span>

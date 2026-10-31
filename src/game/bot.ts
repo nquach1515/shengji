@@ -160,7 +160,17 @@ const opponentsOf = (seat: number) => [(seat + 1) % NUM_PLAYERS, (seat + 3) % NU
 /** Could any opponent still trump this side suit? (known void and trumps are still out there) */
 function oppCanRuff(suit: EffSuit, k: Know): boolean {
   if (suit === 'T') return false;
-  return opponentsOf(k.seat).some((o) => k.voids[o].has(suit) && !k.voids[o].has('T')) && unseenIn(k, 'T').length > 0;
+  if (unseenIn(k, 'T').length === 0) return false;
+  // If every other card of this suit is accounted for, nobody else holds any: anyone with a trump can take it.
+  if (unseenIn(k, suit).length === 0) return true;
+  return opponentsOf(k.seat).some((o) => k.voids[o].has(suit) && !k.voids[o].has('T'));
+}
+
+/** Could anyone else (opponent or partner) block a throw in this suit by trumping? */
+function anyoneCanRuff(suit: EffSuit, k: Know): boolean {
+  if (suit === 'T' || unseenIn(k, 'T').length === 0) return false;
+  if (unseenIn(k, suit).length === 0) return true;
+  return [1, 2, 3].map((i) => (k.seat + i) % 4).some((o) => k.voids[o].has(suit) && !k.voids[o].has('T'));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -189,7 +199,9 @@ function smartLead(s: GameState, seat: number): Card[] {
   let bestThrow: Card[] | null = null;
   for (const [suit, cards] of sides) {
     if (oppCanRuff(suit, k)) continue;
-    const safe = decompose(cards, ctx).filter((c) => safeComp(c, suit, k));
+    let safe = decompose(cards, ctx).filter((c) => safeComp(c, suit, k));
+    // A throw (several combos) can be blocked by anyone who can trump; then just cash the biggest safe combo.
+    if (safe.length > 1 && anyoneCanRuff(suit, k)) safe = safe.slice(0, 1);
     const picked = safe.flatMap((c) => c.cards);
     if (picked.length && (!bestThrow || picked.length > bestThrow.length)) bestThrow = picked;
   }

@@ -39,8 +39,9 @@ Netlify, Vercel or Cloudflare Pages also work. Use build command `npm run build`
 - The dealer takes the 8-card kitty and buries 8.
 - Singles, pairs and tractors (consecutive pairs, skipping the trump rank). You must follow suit,
   pairs and tractors when you can.
-- Throws (multi-combo leads) only stand if no one can beat any part; otherwise the leader plays the beatable part
-  and the cards they take back are revealed to everyone.
+- Throws (multi-combo leads) only stand if no one can beat any part, in suit or (house rule) by trumping: a player
+  out of the suit with trumps matching a part's shape blocks it. Otherwise the leader plays the beatable part and
+  the cards they take back are revealed to everyone.
 - Points: 5s = 5, 10s and Ks = 10. If attackers win the last trick, kitty points × 2^(cards in that lead):
   ×2 single, ×4 pair, ×16 two-pair tractor, capped at ×64.
 
