@@ -939,7 +939,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
 }
 
 function Countdown({ ms, keyId }: { ms: number; keyId: string }) {
-  const total = 6000;
+  const total = 8000;
   return (
     <svg className="countdown" viewBox="0 0 36 36" key={keyId}>
       <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />

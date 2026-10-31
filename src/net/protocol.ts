@@ -71,7 +71,7 @@ export interface PlayerView {
   /** suggested cards after you ask for a hint */
   hint: { id: number; cardIds: string[] } | null;
   settings: Settings;
-  /** total points in cards played so far this round (for "points blocked") */
+  /** total points in tricks completed so far this round (for "points blocked") */
   pointsPlayed: number;
   /** effective suits ('S','H','D','C' or 'T' for trump) each seat has shown it's out of this round */
   voids: string[][];

@@ -3,7 +3,7 @@ import { checkThrow, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, v
 
 export const NUM_PLAYERS = 4;
 export const KITTY_SIZE = 8;
-export const DECLARE_WINDOW_MS = 6000;
+export const DECLARE_WINDOW_MS = 8000;
 
 export type Phase = 'lobby' | 'dealing' | 'declaring' | 'burying' | 'playing' | 'roundEnd' | 'gameOver';
 export type TrumpSuit = Suit | 'NT';

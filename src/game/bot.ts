@@ -383,22 +383,61 @@ export function botBury(s: GameState, seat: number): string[] {
     .map((c) => c.id);
 }
 
+export interface DeclareParams {
+  /** don't declare before holding this many cards */
+  minDealt: number;
+  /** strength needed when nobody has declared / an opponent has / the partner has */
+  thNone: number;
+  thOpp: number;
+  thPartner: number;
+  /** bonus for declaring with a pair (harder to override) */
+  pairBonus: number;
+  /** how much a joker counts toward trump strength */
+  jokerWeight: number;
+  /** also consider declaring in the last-chance window after the deal, needing `lateTh` */
+  late: boolean;
+  lateTh: number;
+}
+
+/** Current settings (see scripts/ml/declare.ts for how they're tuned). */
+export const DECLARE_PARAMS: DeclareParams = {
+  minDealt: 7,
+  thNone: 0.36,
+  thOpp: 0.42,
+  thPartner: 0.6,
+  pairBonus: 0.06,
+  jokerWeight: 1.4,
+  late: false,
+  lateTh: 0.36,
+};
+
 /** Declare when the hand would be strong in that trump suit. */
-export function botDeclare(s: GameState, seat: number): DeclareOption | null {
+export function botDeclare(s: GameState, seat: number, p: DeclareParams = DECLARE_PARAMS): DeclareOption | null {
+  const lateWindow = s.phase === 'declaring';
+  if (lateWindow && !p.late) return null;
   const opts = declareOptions(s, seat);
   if (opts.length === 0) return null;
   const hand = s.hands[seat];
   const dealt = hand.length;
-  if (dealt < 7) return null;
+  if (dealt < p.minDealt) return null;
   const jokers = hand.filter((c) => c.suit === 'J').length;
   const rankCards = hand.filter((c) => c.rank === s.trumpRank).length;
   const scored = opts.map((o) => {
     const suitLen = o.suit === 'NT' ? 0 : hand.filter((c) => c.suit === o.suit && c.rank !== s.trumpRank).length;
-    const trumpCount = suitLen + jokers * 1.4 + rankCards;
-    return { o, score: trumpCount / dealt + (o.strength >= 2 ? 0.06 : 0) + (o.suit === 'NT' ? (jokers + rankCards) / dealt : 0) };
+    const trumpCount = suitLen + jokers * p.jokerWeight + rankCards;
+    return {
+      o,
+      score: trumpCount / dealt + (o.strength >= 2 ? p.pairBonus : 0) + (o.suit === 'NT' ? (jokers + rankCards) / dealt : 0),
+    };
   });
   const best = scored.sort((a, b) => b.score - a.score)[0];
-  const threshold = s.declaration ? (s.declaration.seat === partnerOf(seat) ? 0.6 : 0.42) : 0.36;
+  const threshold = s.declaration
+    ? s.declaration.seat === partnerOf(seat)
+      ? p.thPartner
+      : p.thOpp
+    : lateWindow
+      ? p.lateTh
+      : p.thNone;
   return best.score >= threshold ? best.o : null;
 }
 

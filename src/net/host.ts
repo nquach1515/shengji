@@ -19,7 +19,6 @@ import {
   resetToLobby,
   startRound,
 } from '../game/engine';
-import { totalPoints } from '../game/cards';
 import { Action, ClientMsg, HostMsg, Pace, PEER_PREFIX, PlayerView, Settings } from './protocol';
 import { reliableTimeout } from './timer';
 import { redactFor } from '../game/info';
@@ -34,9 +33,10 @@ export interface SeatInfo {
 
 const BOT_NAMES = ['Mei', 'Jun', 'Lan', 'Bao', 'Ying', 'Kai', 'Lin', 'Tao'];
 const PACE: Record<Pace, { deal: number; bot: number; trick: number; think: number }> = {
-  relaxed: { deal: 140, bot: 1.5, trick: 2300, think: 900 },
-  normal: { deal: 105, bot: 1, trick: 1750, think: 700 },
-  fast: { deal: 65, bot: 0.5, trick: 1450, think: 400 },
+  // deal = ms per card (100 cards): time enough to watch your hand form and decide whether to declare
+  relaxed: { deal: 240, bot: 1.5, trick: 2300, think: 900 },
+  normal: { deal: 180, bot: 1, trick: 1750, think: 700 },
+  fast: { deal: 110, bot: 0.5, trick: 1450, think: 400 },
 };
 const SAVE_KEY = 'sj-host-session';
 
@@ -390,6 +390,13 @@ export class HostController {
             if (opt) declare(s, seat, opt.cardIds);
           }
           if (s.phase === 'declaring') {
+            // Last-chance window: each bot (starting from the dealer) may declare once with its full hand, then passes.
+            for (let i = 0; i < NUM_PLAYERS; i++) {
+              const b = ((s.dealer ?? 0) + i) % NUM_PLAYERS;
+              if (!this.isBot(b)) continue;
+              const opt = botDeclare(redactFor(s, b), b);
+              if (opt) declare(s, b, opt.cardIds);
+            }
             for (let i = 0; i < NUM_PLAYERS; i++) if (this.isBot(i)) s.passed[i] = true;
           }
         });
@@ -534,7 +541,8 @@ export class HostController {
       error: this.errors.get(clientId) ?? null,
       hint: this.hints.get(clientId) ?? null,
       settings: this.settings,
-      pointsPlayed: totalPoints(s.played),
+      // only completed tricks count, so tallies change when a trick is collected, not as cards hit the table
+      pointsPlayed: (s.history ?? []).reduce((t, tr) => t + tr.points, 0),
       voids: s.voids,
     };
   }
