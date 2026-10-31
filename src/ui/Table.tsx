@@ -203,6 +203,25 @@ function Hud({
 }) {
   const [menu, setMenu] = useState(false);
   const [emotes, setEmotes] = useState(false);
+  const iconsRef = useRef<HTMLDivElement>(null);
+  // Close the emoji bar / menu on a click or tap anywhere outside them, or on Escape.
+  useEffect(() => {
+    if (!menu && !emotes) return;
+    const close = () => {
+      setMenu(false);
+      setEmotes(false);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (!iconsRef.current?.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menu, emotes]);
   const [copied, setCopied] = useState(false);
   const usTeam = (view.you ?? 0) % 2;
   const d = view.declaration;
@@ -248,9 +267,13 @@ function Hud({
       </div>
       <div className="right">
         <TeamPanel view={view} team={1 - usTeam} />
-        <div className="icons">
+        <div className="icons" ref={iconsRef}>
           <MuteButton />
-          <button className="btn icon-btn" title="React" onClick={() => setEmotes((x) => !x)}>
+          <button className="btn icon-btn" title="React" onClick={() => {
+              setEmotes((x) => !x);
+              setMenu(false);
+            }}
+          >
             ☺
           </button>
           <button className="btn icon-btn" title="Tricks played this round" onClick={onLast} disabled={view.tricks.length === 0}>
@@ -259,7 +282,11 @@ function Hud({
           <button className="btn icon-btn" title="How to play" onClick={onRules}>
             ?
           </button>
-          <button className="btn icon-btn" title="Menu" onClick={() => setMenu((m) => !m)}>
+          <button className="btn icon-btn" title="Menu" onClick={() => {
+              setMenu((m) => !m);
+              setEmotes(false);
+            }}
+          >
             ⋯
           </button>
           <AnimatePresence>
