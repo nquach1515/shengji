@@ -1,6 +1,7 @@
 /*
- * ICE servers for WebRTC. Direct connections use STUN; players behind strict NATs (very common on phones using
- * cellular data) need a TURN relay. PeerJS's built-in free relays don't currently work, so a relay is only used if
+ * ICE servers for WebRTC. Direct connections use STUN. Two cases need a TURN relay: strict NATs, and — confirmed
+ * by players — devices on the *same* Wi-Fi as the host (routers that can't hairpin, or can't resolve browsers'
+ * mDNS local-address aliases). PeerJS's built-in free relays don't currently work, so a relay is only used if
  * one is configured below.
  *
  * To enable one (free tier): create an app at https://www.metered.ca/stun-turn, then set METERED_APP to its name

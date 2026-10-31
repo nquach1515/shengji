@@ -114,7 +114,7 @@ export class RemoteConnection implements GameConnection {
         'error',
         relayConfigured()
           ? 'Still trying to reach the host — retrying…'
-          : "Can't reach the host from this network (common on cellular data). Try Wi-Fi — retrying…",
+          : "Can't connect to the host. On the same Wi-Fi as the host? Switch this device to cellular data — retrying…",
       );
       conn.close();
       this.retry(3000);
