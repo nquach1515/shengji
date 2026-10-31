@@ -270,7 +270,7 @@ function Hud({
         <TeamPanel view={view} team={1 - usTeam} />
         <div className="icons" ref={iconsRef}>
           <MuteButton />
-          <button className="btn icon-btn" title="React" onClick={() => {
+          <button className="btn icon-btn ib-react" title="React" onClick={() => {
               setEmotes((x) => !x);
               setMenu(false);
             }}
@@ -280,7 +280,7 @@ function Hud({
           <button className="btn icon-btn" title="Tricks played this round" onClick={onLast} disabled={view.tricks.length === 0}>
             ↺
           </button>
-          <button className="btn icon-btn" title="How to play" onClick={onRules}>
+          <button className="btn icon-btn ib-help" title="How to play" onClick={onRules}>
             ?
           </button>
           <button className="btn icon-btn" title="Menu" onClick={() => {
@@ -340,6 +340,9 @@ function Hud({
                     End game, back to lobby
                   </button>
                 )}
+                <button className="btn ghost small" onClick={() => (onRules(), setMenu(false))}>
+                  How to play
+                </button>
                 <button className="btn ghost small" onClick={onLeave}>
                   Leave table
                 </button>

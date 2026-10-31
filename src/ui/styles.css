@@ -613,7 +613,7 @@ input { font: inherit; }
 .hud .center{grid-column:1 / -1;grid-row:2;justify-self:start}
 .trump-pill .t1{font-size:14px}
 .hud .right .icons{position:fixed;right:8px;top:calc(max(12px,env(safe-area-inset-top)) + 66px)}
-.hud .right .icons .btn:nth-child(2),.hud .right .icons .btn:nth-child(3){display:none}
+.hud .right .icons .ib-react,.hud .right .icons .ib-help{display:none}
 .hud>*{min-width:0}
 .hud .right{display:block}
 .team-panel{width:100%;height:auto;padding:7px 8px;gap:8px}
@@ -629,7 +629,7 @@ input { font: inherit; }
 .team-panel .top .tag{display:none}
 .team-panel .pts .k{font-size:8px;letter-spacing:.08em}
 .trump-pill{padding:4px 14px 4px 4px;gap:8px}
-.trump-pill .t2{display:none}
+.trump-pill .t2{display:block;font-size:11px;max-width:52cqw;overflow:hidden;text-overflow:ellipsis}
 .medallion{width:30px;height:30px;font-size:16px}
 .table-wrap{width:calc(100cqw - 70px)}
 .seat.left{left:calc((100% - 100cqw)/2 + 4px)}
@@ -703,3 +703,7 @@ input { font: inherit; }
 /* your own revealed voids, inline on the You plate */
 .voids.inline { gap: 3px; }
 .voids.inline .void { width: 15px; height: 20px; font-size: 12px; }
+
+/* iOS Safari leaves ghost outlines of removed buttons inside elements with backdrop-filter;
+   the action bar's buttons change constantly, so give it a solid background instead of a blur */
+.action-bar { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(22, 7, 10, 0.96); }
