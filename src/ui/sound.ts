@@ -45,15 +45,25 @@ function audio(): AudioContext | null {
       return null;
     }
   }
-  if (ctx.state === 'suspended') void ctx.resume();
+  // 'suspended' after autoplay blocking, 'interrupted' (Safari) after the page was in the background
+  if (ctx.state !== 'running' && ctx.state !== 'closed') void ctx.resume().catch(() => {});
   return ctx;
 }
 
-// Unlock audio on the first interaction.
+// Unlock audio on interaction. Not just the first one: phones suspend audio whenever the page leaves the screen,
+// and only a tap is guaranteed to be allowed to start it again.
 if (typeof window !== 'undefined') {
   const unlock = () => audio();
-  window.addEventListener('pointerdown', unlock, { once: true });
-  window.addEventListener('keydown', unlock, { once: true });
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      // iOS can leave a backgrounded context "running" but silent; start a fresh one when we're back
+      void ctx?.close().catch(() => {});
+      ctx = null;
+      noise = null;
+    } else audio();
+  });
 }
 
 function noiseBuffer(a: AudioContext): AudioBuffer {
@@ -66,7 +76,7 @@ function noiseBuffer(a: AudioContext): AudioBuffer {
 }
 
 function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume = 1) {
-  if (muted) return;
+  if (muted || document.visibilityState === 'hidden') return;
   const a = audio();
   if (!a || a.state !== 'running') return;
   const out = a.createGain();
