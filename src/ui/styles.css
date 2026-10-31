@@ -524,7 +524,7 @@ input { font: inherit; }
 .backs { position: relative; width: 150px; height: 56px; }
 .backs .back-slot { position: absolute; left: 50%; top: 4px; margin-left: -17px; transform-origin: 50% 160%; }
 .backs .card { --cw: 34px; }
-.decl-cards { display: flex; gap: 4px; }
+.decl-cards { display: flex; flex-wrap: nowrap; gap: 4px; width: max-content; }
 /* suits a player has shown they're out of */
 .voids { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-dim); }
 .void {
@@ -799,3 +799,5 @@ input { font: inherit; }
 /* side players sit at the screen edge, so their pill hugs the outer edge instead of centering */
 .seat.left .voids-anchor { left: 0; transform: none; }
 .seat.right .voids-anchor { left: auto; right: 0; transform: none; }
+.seat.left .decl-anchor { left: 0; transform: none; }
+.seat.right .decl-anchor { left: auto; right: 0; transform: none; }
