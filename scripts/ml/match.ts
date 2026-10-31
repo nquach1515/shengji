@@ -1,6 +1,7 @@
 // Duplicate match between two bot configurations: every deal is played twice from the identical position with the
 // teams swapped, so card luck cancels and only decisions differ. Bots receive redacted states only.
 //   npx tsx scripts/ml/match.ts <A> <B> [deals]   configs: heuristic | search-leads | learned | learned-leads | learned+search-leads
+import { writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
@@ -13,10 +14,13 @@ const configs: Record<string, Policy> = {
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,
   'learned-leads': (s, seat) => (s.trick!.plays.length === 0 ? learnedPlay(s, seat) : botPlay(s, seat)),
+  // the trained model proposes; a 64-deal search checks every alternative and overrides only on a clear win
+  'search+learned': (s, seat) => searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
   'learned+search-leads': (s, seat) => (s.trick!.plays.length === 0 ? searchPlay(s, seat, SEARCH_SAMPLES, true) : learnedPlay(s, seat)),
 };
 const [a, b] = [process.argv[2], process.argv[3]];
 const deals = Number(process.argv[4] ?? 200);
+const rawOut = process.argv[5]; // optional: write per-deal results here for pooling parallel runs
 if (!configs[a] || !configs[b]) throw new Error(`configs: ${Object.keys(configs).join(', ')}`);
 const nm = () => '';
 const advs: number[] = [];
@@ -44,6 +48,7 @@ for (let i = 0; i < deals; i++) {
   advs.push((run(0) - run(1)) / 2);
   if ((i + 1) % 50 === 0) console.error(`  ${i + 1}/${deals} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
 }
+if (rawOut) writeFileSync(rawOut, JSON.stringify(advs));
 const mean = advs.reduce((t, x) => t + x, 0) / deals;
 const sd = Math.sqrt(advs.reduce((t, x) => t + (x - mean) ** 2, 0) / (deals - 1));
 console.log(

@@ -33,10 +33,10 @@ export interface SeatInfo {
 }
 
 const BOT_NAMES = ['Mei', 'Jun', 'Lan', 'Bao', 'Ying', 'Kai', 'Lin', 'Tao'];
-const PACE: Record<Pace, { deal: number; bot: number; trick: number }> = {
-  relaxed: { deal: 140, bot: 1.5, trick: 2300 },
-  normal: { deal: 105, bot: 1, trick: 1750 },
-  fast: { deal: 65, bot: 0.5, trick: 1450 },
+const PACE: Record<Pace, { deal: number; bot: number; trick: number; think: number }> = {
+  relaxed: { deal: 140, bot: 1.5, trick: 2300, think: 900 },
+  normal: { deal: 105, bot: 1, trick: 1750, think: 700 },
+  fast: { deal: 65, bot: 0.5, trick: 1450, think: 400 },
 };
 const SAVE_KEY = 'sj-host-session';
 
@@ -478,7 +478,7 @@ export class HostController {
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
       // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
-      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat });
+      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, budgetMs: PACE[this.settings.pace].think });
     });
   }
 

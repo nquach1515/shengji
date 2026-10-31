@@ -158,3 +158,49 @@ export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly =
     return options[start];
   }
 }
+
+/**
+ * Anytime version of searchPlay for live bots: keeps sampling deals until `budgetMs` is spent (at least
+ * `minSamples`, at most `maxSamples`), playing every option on each sampled deal. The bots' natural "thinking" pause
+ * covers this time, so a deeper search doesn't add visible delay.
+ */
+export function searchPlayTimed(
+  s: GameState,
+  seat: number,
+  budgetMs: number,
+  prior?: string[],
+  minSamples = 16,
+  maxSamples = 400,
+): string[] {
+  const options = moveOptions(s, seat);
+  const keyOf = (ids: string[]) => [...ids].sort().join(',');
+  let start = 0;
+  if (prior) {
+    start = options.findIndex((m) => keyOf(m) === keyOf(prior));
+    if (start < 0) {
+      options.push(prior);
+      start = options.length - 1;
+    }
+  }
+  if (options.length === 1) return options[0];
+  const t0 = Date.now();
+  const scores: number[][] = options.map(() => []);
+  try {
+    while (scores[0].length < maxSamples && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
+      const d = determinize(s, seat);
+      options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m)));
+    }
+  } catch {
+    if (scores[0].length < minSamples) return options[start];
+  }
+  const mean = (xs: number[]) => xs.reduce((t, x) => t + x, 0) / xs.length;
+  let best = start;
+  for (let i = 0; i < options.length; i++) {
+    if (i === best) continue;
+    const diff = scores[i].map((x, k) => x - scores[best][k]);
+    const m = mean(diff);
+    const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, diff.length - 1) / diff.length);
+    if (m > Math.max(0.5, 1.5 * se)) best = i;
+  }
+  return options[best];
+}

@@ -63,5 +63,20 @@ the optional bidding phase (炒底) is not included.
 - `dup [deals] [samples] [leads|all]`: duplicate match. Each deal is played twice with teams swapped, so card
   luck cancels and only the decisions differ.
 
-Bots never look at hidden hands. They lead using determinized Monte Carlo search (`src/game/search.ts`,
-run in a Web Worker) and follow with a card-counting heuristic (`src/game/bot.ts`).
+Bots never look at hidden hands: every bot decision gets a redacted copy of the game, and `npm run leaktest`
+checks that decisions are identical however the hidden cards are dealt.
+
+How a bot (and the Hint button) picks a move:
+1. A small neural network (`src/game/policy.ts`) proposes a move. It was trained by search distillation
+   (`scripts/ml/`): 30,000 self-play positions, with every option scored by Monte Carlo search, and a network
+   trained to rank options the same way.
+2. A time-budgeted determinized Monte Carlo search (`src/game/search.ts`, in a Web Worker) plays every option
+   out over many deals of the hidden cards that are consistent with what the bot knows. It overrides the
+   network only when an alternative wins by a clear margin.
+
+Duplicate-match results (same deals played twice with the teams swapped, so card luck cancels):
+
+| Matchup | Points per round |
+|---|---|
+| learned network vs card-counting heuristic (1,000 deals) | +2.9 ± 1.2 |
+| network + search vs network alone (240 deals) | +8.8 ± 1.8 |
