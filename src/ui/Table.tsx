@@ -150,6 +150,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
                 <div className="nm">You</div>
                 <div className="sub">
                   <span className="cc">{view.hand.length}</span>
+                  {view.phase === 'playing' && <Voids voids={view.voids[me] ?? []} inline />}
                 </div>
               </div>
             </div>
@@ -1157,11 +1158,15 @@ const VOID_ORDER = ['S', 'H', 'C', 'D', 'T'];
 const SUIT_WORD: Record<string, string> = { S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds', T: 'trump' };
 
 /** Suits a player has revealed they're out of (by failing to follow). */
-function Voids({ voids }: { voids: string[] }) {
+function Voids({ voids, inline }: { voids: string[]; inline?: boolean }) {
   if (voids.length === 0) return null;
   const sorted = [...voids].sort((a, b) => VOID_ORDER.indexOf(a) - VOID_ORDER.indexOf(b));
   return (
-    <div className="plate voids" style={{ padding: '3px 8px', borderRadius: 999 }}>
+    <div
+      className={`voids ${inline ? 'inline' : 'plate'}`}
+      style={inline ? undefined : { padding: '3px 8px', borderRadius: 999 }}
+      title={inline ? 'Suits the other players know you are out of' : undefined}
+    >
       <span>out of</span>
       <AnimatePresence initial={false}>
         {sorted.map((v) => (

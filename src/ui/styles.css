@@ -699,3 +699,7 @@ input { font: inherit; }
 
 /* app version on the home screen */
 .version { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: -4px; }
+
+/* your own revealed voids, inline on the You plate */
+.voids.inline { gap: 3px; }
+.voids.inline .void { width: 15px; height: 20px; font-size: 12px; }
