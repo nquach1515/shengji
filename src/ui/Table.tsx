@@ -513,7 +513,6 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
             <span className="cc">{seat.cardCount}</span>
             {decl && <span className="decl" style={{ color: 'var(--gold-hi)' }}>declared {decl.suit === 'NT' ? '★' : SUIT_GLYPH[decl.suit]}</span>}
             {!seat.online && <span className="tag">offline</span>}
-            {view.phase === 'playing' && <Voids voids={view.voids[seatIdx] ?? []} inline />}
             {view.isHost && !seat.isHost && !seat.online && (
               <button className="btn ghost small" style={{ padding: '1px 8px' }} onClick={() => send({ type: 'botify', seat: seatIdx })}>
                 Bot takeover
@@ -521,6 +520,12 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
             )}
           </div>
         </div>
+        {/* "out of" pill: floats beside the plate so it never pushes the plate around */}
+        {view.phase === 'playing' && (
+          <div className="voids-anchor">
+            <Voids voids={view.voids[seatIdx] ?? []} />
+          </div>
+        )}
       </div>
       {pos === 'top' && fan}
       {/* floats outside the layout, so the name plate doesn't jump when these appear or disappear */}
@@ -1216,7 +1221,7 @@ function Voids({ voids, inline }: { voids: string[]; inline?: boolean }) {
       style={inline ? undefined : { padding: '3px 8px', borderRadius: 999 }}
       title="Suits this player has shown they're out of"
     >
-      <span className="out-label">out</span>
+      <span className="out-label">out of</span>
       <AnimatePresence initial={false}>
         {sorted.map((v) => (
           <motion.span

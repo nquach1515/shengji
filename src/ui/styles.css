@@ -652,8 +652,7 @@ input { font: inherit; }
 .opt-note{padding-left:0}
 .modal{padding:20px}}
 
-/* the top player's void chips sit beside their plate so the fan below stays put */
-.seat.top .voids { position: absolute; left: 100%; top: 12px; margin-left: 8px; white-space: nowrap; }
+
 
 /* blocked throw announcement */
 .throw-splash { padding: 14px 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-color: rgba(255, 140, 120, 0.7); }
@@ -786,3 +785,17 @@ input { font: inherit; }
   .settings-row .opt-row { justify-content: space-between; }
   .lobby-inner { gap: 14px; }
 }
+
+/* "out of" pill floats outside the seat layout: below side players, to the right of the top player */
+.voids-anchor { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 6px; z-index: 6; white-space: nowrap; }
+.seat.top .voids-anchor { left: 100%; top: 50%; transform: translateY(-50%); margin: 0 0 0 8px; }
+.voids.plate .out-label { font-size: 11px; color: var(--ink-dim); }
+
+/* hand hover lift: plain CSS, only with a real mouse, so it can never get stuck */
+.hand .lift { transition: transform 0.15s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .hand .slot:hover .lift:not(.sel) { transform: translateY(-12px); }
+}
+/* side players sit at the screen edge, so their pill hugs the outer edge instead of centering */
+.seat.left .voids-anchor { left: 0; transform: none; }
+.seat.right .voids-anchor { left: auto; right: 0; transform: none; }
