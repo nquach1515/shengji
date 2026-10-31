@@ -223,6 +223,17 @@ export function settledTrickMove(s: GameState, seat: number): string[] | null {
 }
 
 /**
+ * The narrow, clear-cut case of settledTrickMove: our partner is winning the trick and no opponent plays after us, so
+ * the trick is ours whatever we play. The heuristic feeds it the most points it can spare.
+ */
+export function feedTrickMove(s: GameState, seat: number): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return null;
+  if (trickWinner(trick.plays, ctxOf(s)) !== (seat + 2) % 4) return null;
+  return settledTrickMove(s, seat);
+}
+
+/**
  * When no legal move wins the trick right now and our partner isn't currently winning it, this is a pure discard:
  * the card-counting heuristic dumps the cheapest cards (protecting pairs, trumps and points). The learned model has a
  * blind spot here (it sometimes throws a higher pair), and the cost only shows up tricks later — too noisy for the
