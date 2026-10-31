@@ -413,14 +413,16 @@ export interface DeclareParams {
 
 /** Current settings (see scripts/ml/declare.ts for how they're tuned). */
 export const DECLARE_PARAMS: DeclareParams = {
-  minDealt: 7,
-  thNone: 0.36,
-  thOpp: 0.42,
-  thPartner: 0.6,
-  pairBonus: 0.06,
-  jokerWeight: 1.4,
-  late: false,
-  lateTh: 0.36,
+  // waits for 13 cards and may use the last-chance window: ~0.35 pts/round weaker than declaring from 7 cards,
+  // but bots no longer declare on a handful of cards (user's choice)
+  minDealt: 13,
+  thNone: 0.47,
+  thOpp: 0.38,
+  thPartner: 0.71,
+  pairBonus: 0.05,
+  jokerWeight: 1.06,
+  late: true,
+  lateTh: 0.28,
 };
 
 /** Declare when the hand would be strong in that trump suit. */
