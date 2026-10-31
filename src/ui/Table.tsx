@@ -240,7 +240,12 @@ function Hud({
       </>
     );
   } else if (view.trumpSuit) detail = 'No one declared · set by kitty flip';
-  else detail = `Show a ${levelLabel(view.trumpRank)} to declare · joker pair for no trump`;
+  else
+    detail = (
+      <>
+        Show a {levelLabel(view.trumpRank)} to declare<span className="wide-only"> · joker pair for no trump</span>
+      </>
+    );
 
   return (
     <div className="hud">
@@ -259,7 +264,11 @@ function Hud({
           <div>
             <div className="t1">
               <span className="zh">主</span>
-              {view.trumpSuit === null ? 'Trump undecided' : view.trumpSuit === 'NT' ? 'No trump' : `Trump ${SUIT_GLYPH[view.trumpSuit]}`}
+              {view.trumpSuit === null ? (
+                <>
+                  Trump<span className="wide-only"> undecided</span>
+                </>
+              ) : view.trumpSuit === 'NT' ? 'No trump' : `Trump ${SUIT_GLYPH[view.trumpSuit]}`}
               <span style={{ opacity: 0.6 }}>·</span> level {levelLabel(view.trumpRank)}
             </div>
             <div className="t2">{detail}</div>
@@ -823,7 +832,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
     status = (
       <>
         <div className="spinner" /> Dealing · {view.deckRemaining} left
-        {view.declareOptions.length > 0 && <span style={{ opacity: 0.7 }}>· you can declare trump</span>}
+        {view.declareOptions.length > 0 && <span className="wide-only" style={{ opacity: 0.7 }}>· you can declare trump</span>}
       </>
     );
     buttons = declareButtons;
@@ -883,7 +892,11 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
             {leading
               ? isThrow
                 ? 'Throw — blocked if anyone can beat or trump any part; then just the weakest part is played'
-                : 'Your lead — a single, pair, tractor, or throw'
+                : (
+                    <>
+                      Your lead<span className="wide-only"> — a single, pair, tractor, or throw</span>
+                    </>
+                  )
               : describeLead(lead!, ctx)}
             <span style={{ opacity: 0.7 }}> · {need ? `${selectedCount}/${need}` : `${selectedCount} selected`}</span>
           </span>

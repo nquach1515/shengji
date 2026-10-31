@@ -712,3 +712,22 @@ input { font: inherit; }
 @container stage (max-width: 720px) {
   .game::before { display: none; }
 }
+
+/* phones: long status lines wrap instead of being cut off; extra explanation is dropped */
+@container stage (max-width: 720px) {
+  .action-bar .status { white-space: normal; font-size: 12.5px; line-height: 1.3; }
+  .action-bar .status > span { min-width: 0; }
+  .wide-only { display: none; }
+}
+
+/* phones: the trump box shares its row with the icon buttons, so it gets the remaining width and truncates;
+   the table starts below the two-row header so the top player's plate never overlaps it */
+@container stage (max-width: 720px) {
+  .game { --hud-h: 150px; }
+  .hud .center { max-width: calc(100cqw - 16px - 136px); min-width: 0; }
+  .trump-pill { max-width: 100%; min-width: 0; }
+  .trump-pill > div:last-child { min-width: 0; }
+  .trump-pill .t1 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .trump-pill .t2 { max-width: none; }
+  .seat.top { top: -12px; }
+}
