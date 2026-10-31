@@ -129,6 +129,9 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
           })}
         </div>
 
+        {/* phones: the oval has no room for four seat cards, so seats are a list grouped by team */}
+        <SeatList view={view} send={send} partnerSeat={partnerSeat} />
+
         {view.isHost ? (
           <div className="plate settings-row">
             <div className="opt-row">
@@ -228,5 +231,75 @@ function NameEditor({ name, onSave }: { name: string; onSave: (name: string) => 
         onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
       />
     </form>
+  );
+}
+
+function SeatList({ view, send, partnerSeat }: { view: PlayerView; send: (a: Action) => void; partnerSeat: number | null }) {
+  const you = view.you ?? 0;
+  const groups = [
+    { label: 'Your team', seats: [you, (you + 2) % 4], side: 'us' as const },
+    { label: 'Opponents', seats: [(you + 1) % 4, (you + 3) % 4], side: 'them' as const },
+  ];
+  return (
+    <div className="seat-list">
+      {groups.map((g) => (
+        <div key={g.label} className="seat-group">
+          <div className="team-tag" style={{ color: g.side === 'us' ? 'var(--us)' : 'var(--them)' }}>
+            {g.label}
+          </div>
+          {g.seats.map((i) => {
+            const seat = view.seats[i];
+            return (
+              <div key={i} className={`seat-row ${seat ? 'plate' : 'empty'}`}>
+                {seat ? (
+                  <>
+                    <Avatar seat={seat} side={g.side} size={34} />
+                    <div className="who">
+                      {i === view.you ? (
+                        <NameEditor name={seat.name} onSave={(name) => send({ type: 'rename', name })} />
+                      ) : (
+                        <div className="nm">{seat.name}</div>
+                      )}
+                      <div className="meta">
+                        {i === partnerSeat ? 'partner' : i === view.you ? 'tap your name to change it' : 'opponent'}
+                        {seat.isBot && ' · bot'}
+                        {!seat.online && ' · offline'}
+                      </div>
+                    </div>
+                    {view.isHost && !seat.isHost && (
+                      <div className="actions">
+                        {partnerSeat !== null && i !== partnerSeat && (
+                          <button className="btn small" onClick={() => send({ type: 'swap', a: i, b: partnerSeat })}>
+                            Make partner
+                          </button>
+                        )}
+                        <button className="btn small ghost" title="Remove" onClick={() => send({ type: 'removeSeat', seat: i })}>
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="who">
+                      <div className="nm" style={{ color: 'var(--ink-dim)', fontWeight: 500 }}>
+                        {i === partnerSeat ? 'Partner seat' : 'Open seat'}
+                      </div>
+                    </div>
+                    {view.isHost && (
+                      <div className="actions">
+                        <button className="btn small" onClick={() => send({ type: 'addBot', seat: i })}>
+                          + Bot
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 }

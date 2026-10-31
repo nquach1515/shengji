@@ -767,3 +767,22 @@ input { font: inherit; }
 }
 /* reserve room for "out" chips so a plate doesn't grow (and shift) when the first one appears */
 .seat-plate .sub { min-height: 20px; }
+
+/* lobby seat list (phones only; computers use the oval) */
+.seat-list { display: none; }
+@container stage (max-width: 720px) {
+  .lobby-table { display: none; }
+  .seat-list { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+  .seat-group { display: flex; flex-direction: column; gap: 8px; }
+  .seat-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; min-height: 56px; }
+  .seat-row.empty { border: 1.5px dashed rgba(251, 227, 160, 0.4); background: rgba(40, 4, 8, 0.55); }
+  .seat-row .who { flex: 1; min-width: 0; text-align: left; }
+  .seat-row .nm { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seat-row .name-edit { padding: 0; }
+  .seat-row .meta { font-size: 12px; color: var(--ink-dim); }
+  .seat-row .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .room-code .ch { width: 48px; height: 58px; font-size: 28px; }
+  .settings-row { flex-direction: column; align-items: stretch; gap: 10px; width: 100%; }
+  .settings-row .opt-row { justify-content: space-between; }
+  .lobby-inner { gap: 14px; }
+}
