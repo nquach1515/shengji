@@ -50,6 +50,7 @@ export interface GameEvent {
   text: string;
   /** throwFail: the cards the leader had to take back (now public knowledge) */
   cards?: Card[];
+  round?: number;
 }
 
 export interface GameState {
@@ -123,7 +124,7 @@ export function newGame(startLevel = 2): GameState {
 }
 
 function pushEvent(s: GameState, kind: GameEvent['kind'], text: string, seat?: number, cards?: Card[]) {
-  s.events = [...s.events.slice(-19), { id: ++s.eventSeq, kind, text, seat, cards }];
+  s.events = [...s.events.slice(-19), { id: ++s.eventSeq, kind, text, seat, cards, round: s.round }];
 }
 
 export function startRound(s: GameState): void {

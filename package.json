@@ -9,7 +9,8 @@
     "preview": "vite preview --host",
     "typecheck": "tsc -b",
     "sim": "tsx scripts/simulate.ts",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "leaktest": "tsx scripts/leaktest.ts"
   },
   "dependencies": {
     "framer-motion": "^11.11.17",

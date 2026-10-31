@@ -22,6 +22,7 @@ import {
 import { totalPoints } from '../game/cards';
 import { Action, ClientMsg, HostMsg, Pace, PEER_PREFIX, PlayerView, Settings } from './protocol';
 import { reliableTimeout } from './timer';
+import { redactFor } from '../game/info';
 
 export interface SeatInfo {
   clientId: string;
@@ -335,12 +336,12 @@ export class HostController {
           const key = this.decisionKey();
           void this.botMove(seat, false).then((ids) => {
             if (this.destroyed || this.decisionKey() !== key) return;
-            const move = ids && checkPlay(this.state, seat, ids) === null ? ids : suggest(this.state, seat);
+            const move = ids && checkPlay(this.state, seat, ids) === null ? ids : suggest(redactFor(this.state, seat), seat);
             this.hints.set(clientId, { id: ++this.errorSeq, cardIds: move });
             this.changed();
           });
         } else if (s.phase === 'burying' && s.dealer === seat) {
-          this.hints.set(clientId, { id: ++this.errorSeq, cardIds: botBury(s, seat) });
+          this.hints.set(clientId, { id: ++this.errorSeq, cardIds: botBury(redactFor(s, seat), seat) });
         }
         return null;
       case 'declare':
@@ -379,7 +380,7 @@ export class HostController {
         this.schedule(PACE[this.settings.pace].deal, () => {
           const seat = dealOne(s, Date.now());
           if (this.isBot(seat)) {
-            const opt = botDeclare(s, seat);
+            const opt = botDeclare(redactFor(s, seat), seat);
             if (opt) declare(s, seat, opt.cardIds);
           }
           if (s.phase === 'declaring') {
@@ -396,7 +397,7 @@ export class HostController {
         return;
       }
       case 'burying':
-        if (this.isBot(s.dealer!)) this.schedule(1400 * PACE[this.settings.pace].bot, () => bury(s, s.dealer!, botBury(s, s.dealer!)));
+        if (this.isBot(s.dealer!)) this.schedule(1400 * PACE[this.settings.pace].bot, () => bury(s, s.dealer!, botBury(redactFor(s, s.dealer!), s.dealer!)));
         return;
       case 'playing':
         if (s.trick && s.trick.winner !== null) {
@@ -428,7 +429,7 @@ export class HostController {
         // Ignore if the game moved on meanwhile (reset, seat handed back to a human, ...).
         if (this.destroyed || this.decisionKey() !== key || !this.isBot(seat) || s.phase !== 'playing') return;
         this.botThinking = null;
-        const move = ids && checkPlay(s, seat, ids) === null ? ids : botPlay(s, seat);
+        const move = ids && checkPlay(s, seat, ids) === null ? ids : botPlay(redactFor(s, seat), seat);
         play(s, seat, move, this.name);
         this.changed();
       }, Math.max(0, minDelay - (Date.now() - started)));
@@ -452,11 +453,12 @@ export class HostController {
         this.worker = null;
       }
     }
-    if (!this.worker) return Promise.resolve(botPlay(this.state, seat));
+    if (!this.worker) return Promise.resolve(botPlay(redactFor(this.state, seat), seat));
     const id = ++this.workerSeq;
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
-      this.worker!.postMessage({ id, state: this.state, seat, leadsOnly });
+      // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
+      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, leadsOnly });
     });
   }
 

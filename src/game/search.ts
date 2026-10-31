@@ -12,6 +12,7 @@ import { botPlay, candidates } from './bot';
 import { Card, cardKey, makeDecks, shuffle } from './cards';
 import { checkPlay, collectTrick, ctxOf, GameState, play } from './engine';
 import { decompose, effSuit } from './rules';
+import { knownLocations } from './info';
 
 const noName = () => '';
 
@@ -32,12 +33,17 @@ export function determinize(s: GameState, seat: number): GameState {
   const d = cloneState(s);
   const known = new Set<string>([...s.hands[seat], ...s.played].map((c) => c.id));
   if (seat === s.dealer) for (const c of s.kitty) known.add(c.id);
-  const pool = makeDecks(2).filter((c) => !known.has(c.id));
+  const pins = knownLocations(s, seat);
+  const pool = makeDecks(2).filter((c) => !known.has(c.id) && !pins.has(c.id));
   const ctx = ctxOf(s);
   // Recipients of hidden cards: the other players (who can't hold suits they've shown they lack), and the kitty.
   const recips = [0, 1, 2, 3]
     .filter((o) => o !== seat)
-    .map((o) => ({ who: o as number | 'kitty', cap: s.hands[o].length, ok: (suit: string) => !s.voids[o].includes(suit), got: [] as Card[] }));
+    .map((o) => {
+      // cards we know this player holds (shown when declaring, or taken back from a blocked throw)
+      const got = makeDecks(2).filter((c) => pins.get(c.id) === o);
+      return { who: o as number | 'kitty', cap: s.hands[o].length - got.length, ok: (suit: string) => !s.voids[o].includes(suit), got };
+    });
   if (seat !== s.dealer) recips.push({ who: 'kitty', cap: s.kitty.length, ok: () => true, got: [] });
   const cnt: Record<string, number> = Object.fromEntries(SUITS.map((x) => [x, 0]));
   for (const c of pool) cnt[effSuit(c, ctx)]++;
