@@ -101,6 +101,7 @@ export class HostController {
   private workerWaiting = new Map<number, (ids: string[] | null) => void>();
   /** the decision a bot is currently thinking about, so it isn't requested twice */
   private botThinking: string | null = null;
+  private hintCache: { key: string; move: Promise<string[] | null> } | null = null;
 
   constructor(
     public code: string,
@@ -337,9 +338,9 @@ export class HostController {
     switch (a.type) {
       case 'hint':
         if (s.phase === 'playing' && s.turn === seat && s.trick?.winner === null) {
-          // Hints use the full search (every decision, not just leads), computed in the worker.
+          // The hint is exactly what a bot would play in this seat — usually already computed (see prefetchHint).
           const key = this.decisionKey();
-          void this.botMove(seat, 'hint').then((ids) => {
+          void this.hintFor(seat).then((ids) => {
             if (this.destroyed || this.decisionKey() !== key) return;
             const move = ids && checkPlay(this.state, seat, ids) === null ? ids : suggest(redactFor(this.state, seat), seat);
             this.hints.set(clientId, { id: ++this.errorSeq, cardIds: move });
@@ -409,6 +410,8 @@ export class HostController {
           this.schedule(PACE[this.settings.pace].trick, () => collectTrick(s, this.name));
         } else if (this.isBot(s.turn)) {
           this.thinkAndPlay();
+        } else if (s.trick) {
+          this.prefetchHint(s.turn);
         }
         return;
     }
@@ -441,7 +444,19 @@ export class HostController {
     });
   }
 
-  private botMove(seat: number, mode: 'bot' | 'hint' = 'bot'): Promise<string[] | null> {
+  /** Start computing the bot move for a human's turn right away, so the Hint button answers instantly. */
+  private prefetchHint(seat: number) {
+    const key = this.decisionKey();
+    if (this.hintCache?.key === key) return;
+    this.hintCache = { key, move: this.botMove(seat) };
+  }
+
+  private hintFor(seat: number): Promise<string[] | null> {
+    this.prefetchHint(seat);
+    return this.hintCache!.move;
+  }
+
+  private botMove(seat: number): Promise<string[] | null> {
     if (this.worker === undefined) {
       try {
         this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
@@ -463,7 +478,7 @@ export class HostController {
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
       // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
-      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, mode });
+      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat });
     });
   }
 

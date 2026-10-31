@@ -22,8 +22,6 @@ const noName = () => '';
  * about as much as searching every move, at a fraction of the cost. Follows use the heuristic bot.
  */
 export const SEARCH_SAMPLES = 48;
-/** Hints get a deeper search than bots: one human decision at a time, run in the background worker. */
-export const HINT_SAMPLES = 96;
 const SUITS = ['S', 'H', 'C', 'D', 'T'];
 
 export function cloneState(s: GameState): GameState {

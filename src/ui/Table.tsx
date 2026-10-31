@@ -861,7 +861,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       );
       buttons = (
         <>
-          <button className="btn small" onClick={onHint} disabled={hintPending} title="The best move found by the trained model plus a deep search">
+          <button className="btn small" onClick={onHint} disabled={hintPending} title="What a bot would play here">
             {hintPending ? (
               <>
                 <span className="spinner" /> Thinking
