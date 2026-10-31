@@ -31,6 +31,9 @@ interface Props {
   dealing: boolean;
 }
 
+// Touchscreens keep a sticky hover after a tap, which would leave a deselected card lifted.
+const canHover = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches;
+
 export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const width = useWidth(ref);
@@ -139,7 +142,7 @@ export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
               }
               animate={{ x, y: ty, rotate, opacity: 1, scale: 1 }}
               exit={{ y: ty - 140, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-              whileHover={{ y: ty - (isSel ? 4 : 12) }}
+              whileHover={canHover ? { y: ty - (isSel ? 4 : 12) } : undefined}
               transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
             >
               <CardFace card={card} trump={isTrump(card, ctx)} selected={isSel} />

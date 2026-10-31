@@ -22,6 +22,7 @@ import {
 import { Action, ClientMsg, HostMsg, Pace, PEER_PREFIX, PlayerView, Settings } from './protocol';
 import { reliableTimeout } from './timer';
 import { redactFor } from '../game/info';
+import { randomInt } from '../game/cards';
 import { iceServers } from './ice';
 
 export interface SeatInfo {
@@ -31,7 +32,7 @@ export interface SeatInfo {
   online: boolean;
 }
 
-const BOT_NAMES = ['Mei', 'Jun', 'Lan', 'Bao', 'Ying', 'Kai', 'Lin', 'Tao'];
+const BOT_NAMES = ['Mei', 'Jun', 'Lan', 'Bao', 'Ying', 'Kai', 'Lin', 'Tao', 'Hua', 'Ming', 'Xia', 'Wei', 'Fang', 'Ling', 'Hao', 'Jing', 'Rui', 'Qing', 'Yun', 'Bo'];
 const PACE: Record<Pace, { deal: number; bot: number; trick: number; think: number }> = {
   // deal = ms per card (100 cards): time enough to watch your hand form and decide whether to declare
   relaxed: { deal: 240, bot: 1.5, trick: 2300, think: 900 },
@@ -289,7 +290,9 @@ export class HostController {
         if (!isHost) return 'Only the host can add bots';
         if (this.seats[a.seat]) return 'Seat taken';
         const used = new Set(this.seats.map((x) => x?.name));
-        const name = BOT_NAMES.find((n) => !used.has(n)) ?? 'Bot';
+        // a random unused name, so each new game gets a different cast
+        const free = BOT_NAMES.filter((n) => !used.has(n));
+        const name = free.length ? free[randomInt(free.length)] : 'Bot';
         this.seats[a.seat] = { clientId: `bot-${a.seat}-${Date.now()}`, name, isBot: true, online: true };
         return null;
       }

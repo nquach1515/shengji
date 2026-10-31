@@ -513,6 +513,7 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
             <span className="cc">{seat.cardCount}</span>
             {decl && <span className="decl" style={{ color: 'var(--gold-hi)' }}>declared {decl.suit === 'NT' ? '★' : SUIT_GLYPH[decl.suit]}</span>}
             {!seat.online && <span className="tag">offline</span>}
+            {view.phase === 'playing' && <Voids voids={view.voids[seatIdx] ?? []} inline />}
             {view.isHost && !seat.isHost && !seat.online && (
               <button className="btn ghost small" style={{ padding: '1px 8px' }} onClick={() => send({ type: 'botify', seat: seatIdx })}>
                 Bot takeover
@@ -522,7 +523,8 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
         </div>
       </div>
       {pos === 'top' && fan}
-      <Voids voids={view.phase === 'playing' ? view.voids[seatIdx] ?? [] : []} />
+      {/* floats outside the layout, so the name plate doesn't jump when these appear or disappear */}
+      <div className="decl-anchor">
       <AnimatePresence>
         {decl && declaring && (
           <motion.div
@@ -537,6 +539,7 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
     </div>
   );
@@ -814,6 +817,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
   const me = view.you;
   let status: React.ReactNode = null;
   let buttons: React.ReactNode = null;
+  let barError: string | null = null;
 
   const declareButtons = view.declareOptions.map((o) => (
     <motion.button
@@ -841,7 +845,13 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
     status = (
       <>
         <Countdown ms={view.declareRemainingMs} keyId={`${view.round}-${view.declaration?.strength ?? 0}`} />
-        {passed ? 'Waiting for others…' : 'Last chance to declare trump'}
+        {passed ? (
+          'Waiting for others…'
+        ) : (
+          <>
+            Last chance<span className="wide-only"> to declare trump</span>
+          </>
+        )}
       </>
     );
     buttons = (
@@ -886,6 +896,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       const leading = view.trick.plays.length === 0;
       const lead = view.trick.plays[0]?.cards;
       const need = lead?.length;
+      if (selectedCount > 0 && playError && (!need || selectedCount >= need)) barError = playError;
       status = (
         <>
           <span>
@@ -900,7 +911,6 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
               : describeLead(lead!, ctx)}
             <span style={{ opacity: 0.7 }}> · {need ? `${selectedCount}/${need}` : `${selectedCount} selected`}</span>
           </span>
-          {selectedCount > 0 && playError && (!need || selectedCount >= need) && <span className="err-inline">— {playError}</span>}
         </>
       );
       buttons = (
@@ -950,6 +960,29 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
     <div className="plate action-bar">
       <div className="status">{status}</div>
       <div className="buttons">{buttons}</div>
+      {/* phones hide your name plate, so your revealed voids show above the bar instead */}
+      {!barError && me !== null && view.phase === 'playing' && (view.voids[me]?.length ?? 0) > 0 && (
+        <div className="my-voids">
+          You: <Voids voids={view.voids[me]} inline />
+        </div>
+      )}
+      {/* errors float just above the bar so they never change its size */}
+      <div className="bar-error-anchor">
+        <AnimatePresence>
+          {barError && (
+            <motion.div
+              key={barError}
+              className="bar-error"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.18 }}
+            >
+              {barError}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -1181,9 +1214,9 @@ function Voids({ voids, inline }: { voids: string[]; inline?: boolean }) {
     <div
       className={`voids ${inline ? 'inline' : 'plate'}`}
       style={inline ? undefined : { padding: '3px 8px', borderRadius: 999 }}
-      title={inline ? 'Suits the other players know you are out of' : undefined}
+      title="Suits this player has shown they're out of"
     >
-      <span>out of</span>
+      <span className="out-label">out</span>
       <AnimatePresence initial={false}>
         {sorted.map((v) => (
           <motion.span
