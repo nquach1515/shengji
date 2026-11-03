@@ -72,6 +72,11 @@ export function countTuples(cards: Card[], width: number): number {
   return tuplesOf(cards, width).length;
 }
 
+/** Cards that are in a real pair: exactly two of a kind, not two of a triple. */
+export function pairedCards(cards: Card[]): Card[] {
+  return [...groupIdentical(cards).values()].filter((g) => g.length === 2).flat();
+}
+
 export function countPairs(cards: Card[]): number {
   return countTuples(cards, 2);
 }
@@ -188,8 +193,10 @@ export function followDuties(lead: Card[], handSuit: Card[], ctx: TrumpCtx): Fol
   const comps = decompose(lead, ctx);
   const units = (width: number) => comps.reduce((t, c) => t + (c.width === width ? c.len : 0), 0);
   const triples = Math.min(units(3), countTuples(handSuit, 3));
-  // A triple you can't match still calls for a pair, like any pair in the lead.
-  const pairs = Math.min(units(3) + units(2), countPairs(handSuit));
+  // Pairs (and pair tractors) are owed only from real pairs: nobody has to split a triple to answer a pair.
+  // A triple you can't match still calls for a pair, like any pair in the lead; triples you play count as pairs.
+  const realPairs = pairedCards(handSuit);
+  const pairs = triples + Math.min(units(3) - triples + units(2), countPairs(realPairs));
   const duty = { tractorWidth: 0, tractorLen: 0, triples, pairs };
   const tractor = comps.find((c) => c.kind === 'tractor');
   if (!tractor) return duty;
@@ -197,7 +204,7 @@ export function followDuties(lead: Card[], handSuit: Card[], ctx: TrumpCtx): Fol
   // but someone giving triples for a triple tractor isn't also asked for a pair tractor (both may not fit).
   const widths = tractor.width === 2 ? [2] : triples > 0 ? [3] : [2];
   for (const width of widths) {
-    const handLong = longestTractor(handSuit, ctx, width);
+    const handLong = longestTractor(width === 2 ? realPairs : handSuit, ctx, width);
     if (handLong >= 2) return { ...duty, tractorWidth: width, tractorLen: Math.min(tractor.len, handLong) };
   }
   return duty;

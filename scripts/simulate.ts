@@ -194,10 +194,22 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   const withPair = [C('S', 6), C('S', 6, 1), C('S', 7), C('S', 8)];
   assert(validateFollow([C('S', 6), C('S', 7), C('S', 8)], withPair, lead3, c3) !== null, 'no triple: must play a pair');
   assert(validateFollow([C('S', 6), C('S', 6, 1), C('S', 8)], withPair, lead3, c3) === null, 'pair + single follows a triple');
-  // a pair lead can be answered from a triple
   const onlyTriple = [...T('S', 4), C('S', 7)];
-  assert(validateFollow([C('S', 4), C('S', 7)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) !== null, 'pair from a triple is required');
-  assert(validateFollow([C('S', 4), C('S', 4, 1)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) === null, 'pair from a triple ok');
+  // a pair lead never forces a triple apart: any two cards of the suit will do, though two of the triple may be played
+  assert(validateFollow([C('S', 4), C('S', 7)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) === null, 'triple kept intact against a pair');
+  assert(validateFollow([C('S', 4), C('S', 4, 1)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) === null, 'two of a triple may answer a pair');
+  const bp = legalFollow(onlyTriple, [C('S', 9), C('S', 9, 1)], c3);
+  assert(bp.filter((c) => c.rank === 4).length < 3 && bp.some((c) => c.rank === 7), `bot keeps its triple (played ${bp.map((c) => c.id)})`);
+  // ...but a real pair is still owed
+  const tripleAndPair = [...T('S', 4), C('S', 6), C('S', 6, 1), C('S', 7)];
+  assert(validateFollow([C('S', 4), C('S', 7)], tripleAndPair, [C('S', 9), C('S', 9, 1)], c3) !== null, 'a real pair is owed to a pair');
+  assert(validateFollow([C('S', 6), C('S', 6, 1)], tripleAndPair, [C('S', 9), C('S', 9, 1)], c3) === null, 'real pair answers a pair');
+  // a pair tractor isn't owed out of a triple tractor
+  const leadPT = [C('S', 9), C('S', 9, 1), C('S', 10), C('S', 10, 1)];
+  const tripleTractorHand = [...T('S', 5), ...T('S', 6), C('S', 12), C('S', 13)];
+  assert(validateFollow([C('S', 5), C('S', 6), C('S', 12), C('S', 13)], tripleTractorHand, leadPT, c3) === null, 'triple tractor kept intact against a pair tractor');
+  // a triple is still owed to a triple
+  assert(validateFollow([C('S', 4), C('S', 4, 1), C('S', 7)], [...T('S', 4), C('S', 7), C('S', 8)], lead3, c3) !== null, 'a triple is owed to a triple');
   // triple tractor: answer with a triple tractor, else a pair tractor
   const leadTT = [...T('S', 9), ...T('S', 10)];
   const handTT = [...T('S', 5), ...T('S', 6), C('S', 12), C('S', 13)];

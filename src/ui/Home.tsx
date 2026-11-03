@@ -264,7 +264,7 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
       <ul>
         <li>Lead a single, a pair, a tractor (consecutive pairs), or several combos of one suit at once (a throw). With 3 decks there are also triples and triple tractors.</li>
         <li>A throw only stands if no one can beat any part of it, including by trumping: anyone out of that suit who holds trumps matching a part's shape blocks it. Otherwise only the beatable part is played, and the cards you take back are shown to everyone.</li>
-        <li>Follow suit with the same number of cards, and match pairs/tractors when you can. A triple calls for a triple, or a pair if you have no triple. If you're out of the suit, you may trump.</li>
+        <li>Follow suit with the same number of cards, and match pairs/tractors when you can. A triple calls for a triple, or a pair if you have no triple; you never have to split a triple to answer a pair. If you're out of the suit, you may trump.</li>
         <li>If attackers win the last trick, they also win the kitty's points, doubled.</li>
       </ul>
       <button className="btn primary" onClick={onClose}>

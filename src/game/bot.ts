@@ -7,6 +7,7 @@ import {
   decompose,
   effSuit,
   followDuties,
+  pairedCards,
   EffSuit,
   isTrump,
   matchShape,
@@ -102,7 +103,9 @@ export function legalFollow(hand: Card[], lead: Card[], ctx: TrumpCtx, preferPoi
     const newCards = (t: Card[]) => t.filter((c) => !chosen.some((x) => x.id === c.id)).length;
     for (const step of order) {
       if (step === 'tractor') {
-        if (duty.tractorLen) add(tractorsOf(suitCards, duty.tractorLen, ctx, duty.tractorWidth)[0] ?? []);
+        // a pair tractor is owed from real pairs, so build it from those (keeping triples whole)
+        const pool = duty.tractorWidth === 2 ? pairedCards(suitCards) : suitCards;
+        if (duty.tractorLen) add(tractorsOf(pool, duty.tractorLen, ctx, duty.tractorWidth)[0] ?? []);
         continue;
       }
       const width = step === 'triples' ? 3 : 2;
