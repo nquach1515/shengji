@@ -1,5 +1,5 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
-import { basicPlay, botBury, botDeclare, botPlay, legalFollow } from '../src/game/bot';
+import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
 import { searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
@@ -200,6 +200,20 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   assert(validateFollow([C('S', 4), C('S', 4, 1)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) === null, 'two of a triple may answer a pair');
   const bp = legalFollow(onlyTriple, [C('S', 9), C('S', 9, 1)], c3);
   assert(bp.filter((c) => c.rank === 4).length < 3 && bp.some((c) => c.rank === 7), `bot keeps its triple (played ${bp.map((c) => c.id)})`);
+  // bots keep triples whole when they can: leading from a hand of a triple and a loose card leads the loose card
+  {
+    const g = newGame(2, 3);
+    startRound(g);
+    g.dealer = 1;
+    g.trumpSuit = 'H';
+    g.trumpRank = 2;
+    g.phase = 'playing';
+    g.hands = [[...T('S', 7), C('C', 9)], [C('S', 3)], [C('S', 4)], [C('S', 6)]];
+    g.trick = { leader: 0, plays: [], winner: null, points: 0 };
+    g.turn = 0;
+    const lead = botPlay(g, 0);
+    assert(!splitsTriple(g.hands[0], g.hands[0].filter((c) => lead.includes(c.id))), `bot leads without splitting its triple (led ${lead})`);
+  }
   // ...but a real pair is still owed
   const tripleAndPair = [...T('S', 4), C('S', 6), C('S', 6, 1), C('S', 7)];
   assert(validateFollow([C('S', 4), C('S', 7)], tripleAndPair, [C('S', 9), C('S', 9, 1)], c3) !== null, 'a real pair is owed to a pair');

@@ -8,7 +8,7 @@
  * the same set of deals, so the comparison isn't swamped by luck of the deal. The bot never looks at real
  * hidden hands — only at random guesses of them.
  */
-import { botPlay, candidates } from './bot';
+import { botPlay, candidates, keepTriples } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
 import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
 import { cardValue, decompose, effSuit, isTrump, trickWinner, validateFollow } from './rules';
@@ -106,7 +106,8 @@ export function moveOptions(s: GameState, seat: number): string[][] {
   } else {
     for (const c of candidates(hand, trick.plays[0].cards, ctx)) add(c);
   }
-  return [...out.values()];
+  // bots split a triple only when every option does
+  return keepTriples(hand, [...out.values()], (ids) => hand.filter((c) => ids.includes(c.id)));
 }
 
 /** Plays `move` and finishes the round with the heuristic bot; returns points from `seat`'s team's view. */
@@ -355,7 +356,11 @@ export function feedLikelyMove(s: GameState, seat: number, threshold = HOLD_THRE
   const winCard = trick.plays.find((p) => p.seat === winner)!.cards[0];
   if (holdChance(s, seat, winCard, leadSuit, later) < threshold) return null;
   const hand = s.hands[seat];
-  const legal = candidates(hand, lead, ctx).filter((c) => c.length === 1 && validateFollow(c, hand, lead, ctx) === null);
+  const legal = keepTriples(
+    hand,
+    candidates(hand, lead, ctx).filter((c) => c.length === 1 && validateFollow(c, hand, lead, ctx) === null),
+    (c) => c,
+  );
   if (legal.length === 0) return null;
   const count = new Map<string, number>();
   for (const c of hand) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);

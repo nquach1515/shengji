@@ -69,16 +69,37 @@ function tractorsOf(cards: Card[], len: number, ctx: TrumpCtx, width = 2): Card[
   return out;
 }
 
+/** Does `move` break up a triple in `hand` (play one or two of three identical cards)? */
+export function splitsTriple(hand: Card[], move: Card[]): boolean {
+  const count = (cards: Card[], c: Card) => cards.filter((x) => cardKey(x) === cardKey(c)).length;
+  return move.some((c) => count(hand, c) >= 3 && count(move, c) < 3);
+}
+
+/** Bots split a triple only when they must: the moves that keep every triple whole, or all of them if none does. */
+export function keepTriples<T>(hand: Card[], moves: T[], cardsOf: (m: T) => Card[]): T[] {
+  const whole = moves.filter((m) => !splitsTriple(hand, cardsOf(m)));
+  return whole.length ? whole : moves;
+}
+
+/** Single cards to choose from, leaving triples whole when there's any other card. */
+function singlesOutsideTriples(hand: Card[], cards: Card[]): Card[] {
+  return keepTriples(hand, cards, (c) => [c]);
+}
+
 function fill(chosen: Card[], pool: Card[], n: number, ctx: TrumpCtx, preferPoints: boolean): Card[] {
   const ids = new Set(chosen.map((c) => c.id));
   const left = pool.filter((c) => !ids.has(c.id));
   const count = new Map<string, number>();
   for (const c of left) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);
   const paired = (c: Card) => (count.get(cardKey(c)) ?? 0) >= 2;
-  const rest = left.sort((a, b) =>
-    preferPoints
-      ? points(b) - points(a) || Number(paired(a)) - Number(paired(b)) || strength(a, ctx) - strength(b, ctx)
-      : discardCost(a, ctx) + (paired(a) ? 40 : 0) - (discardCost(b, ctx) + (paired(b) ? 40 : 0)),
+  const inTriple = (c: Card) => ((count.get(cardKey(c)) ?? 0) >= 3 ? 1 : 0);
+  // triples are kept whole before anything else
+  const rest = left.sort(
+    (a, b) =>
+      inTriple(a) - inTriple(b) ||
+      (preferPoints
+        ? points(b) - points(a) || Number(paired(a)) - Number(paired(b)) || strength(a, ctx) - strength(b, ctx)
+        : discardCost(a, ctx) + (paired(a) ? 40 : 0) - (discardCost(b, ctx) + (paired(b) ? 40 : 0))),
   );
   return [...chosen, ...rest.slice(0, n - chosen.length)];
 }
@@ -240,8 +261,9 @@ function smartLead(s: GameState, seat: number): Card[] {
 
   // 3. Partner is void in a side suit (and could trump it) while opponents aren't: lead it for a ruff.
   for (const [suit, cards] of sides) {
-    if (k.voids[partner].has(suit) && !k.voids[partner].has('T') && !oppCanRuff(suit, k)) {
-      return [cards.slice().sort((a, b) => discardCost(a, ctx) - discardCost(b, ctx))[0]];
+    const loose = cards.filter((c) => !splitsTriple(hand, [c]));
+    if (loose.length && k.voids[partner].has(suit) && !k.voids[partner].has('T') && !oppCanRuff(suit, k)) {
+      return [loose.sort((a, b) => discardCost(a, ctx) - discardCost(b, ctx))[0]];
     }
   }
 
@@ -256,11 +278,17 @@ function smartLead(s: GameState, seat: number): Card[] {
   const ordered = sides.slice().sort((a, b) => a[1].length - b[1].length);
   for (const [suit, cards] of ordered) {
     if (oppCanRuff(suit, k) && ordered.length > 1) continue;
-    const singles = cards.filter((c) => points(c) === 0 && !bossSingle(c, k)).sort(byValue(ctx));
+    const singles = cards
+      .filter((c) => points(c) === 0 && !bossSingle(c, k) && !splitsTriple(hand, [c]))
+      .sort(byValue(ctx));
     if (singles.length) return [singles[0]];
   }
   if (ordered.length) {
-    return [ordered.flatMap(([, c]) => c).sort((a, b) => discardCost(a, ctx) - discardCost(b, ctx))[0]];
+    const loose = ordered.flatMap(([, c]) => c).filter((c) => !splitsTriple(hand, [c]));
+    if (loose.length) return [loose.sort((a, b) => discardCost(a, ctx) - discardCost(b, ctx))[0]];
+    // every side card is in a triple: lead the cheapest triple whole
+    const triples = ordered.flatMap(([, c]) => decompose(c, ctx));
+    return triples.sort((a, b) => totalPoints(a.cards) - totalPoints(b.cards) || a.top - b.top)[0].cards;
   }
 
   // 6. Only trumps left.
@@ -268,7 +296,7 @@ function smartLead(s: GameState, seat: number): Card[] {
   const safe = comps.filter((c) => safeComp(c, 'T', k));
   if (safe.length) return safe.flatMap((c) => c.cards);
   const pair = comps.find((c) => c.kind !== 'single');
-  return pair ? pair.cards : [trumps.sort(byValue(ctx))[0]];
+  return pair ? pair.cards : [singlesOutsideTriples(hand, trumps).sort(byValue(ctx))[0]];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -350,7 +378,11 @@ function smartFollow(s: GameState, seat: number): Card[] {
   const winnerCards = trick.plays.find((p) => p.seat === winner)!.cards;
   const partnerWinning = teamOf(winner) === teamOf(seat);
 
-  const legal = candidates(hand, lead, ctx).filter((c) => c.length === lead.length && validateFollow(c, hand, lead, ctx) === null);
+  const legal = keepTriples(
+    hand,
+    candidates(hand, lead, ctx).filter((c) => c.length === lead.length && validateFollow(c, hand, lead, ctx) === null),
+    (c) => c,
+  );
   const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0) + pairBreakCost(cards, hand, ctx);
   const pts = (cards: Card[]) => totalPoints(cards);
   const wins = (cards: Card[]) => trickWinner([...trick.plays, { seat, cards }], ctx) === seat;
@@ -407,6 +439,7 @@ export function botBury(s: GameState, seat: number): string[] {
       cardValue(c, ctx) * 2 +
       points(c) * 4 +
       (counts.get(cardKey(c))! > 1 ? 60 : 0) +
+      (counts.get(cardKey(c))! > 2 ? 60 : 0) + // keep triples whole
       (c.rank === 14 ? 80 : 0)
     );
   };
@@ -449,8 +482,23 @@ export const DECLARE_PARAMS: DeclareParams = {
   lateTh: 0.28,
 };
 
-/** 3 decks: untuned 2-deck values for now, waiting for about the same share of the hand (20 of 38 cards). */
-export const DECLARE_PARAMS_3: DeclareParams = { ...DECLARE_PARAMS, minDealt: 20, tripleBonus: 0 };
+/**
+ * 3 decks: waits for about the same share of the hand as with 2 decks (20 of 38 cards). Tuned with
+ * scripts/ml/declare.ts (DECKS=3): best of 60 random candidates, confirmed over 1,500 duplicate deals at
+ * +0.90 ± 0.73 points/round against the 2-deck values. It skips the last-chance window (with the window it
+ * measured +0.47 ± 0.74, not a proven gain).
+ */
+export const DECLARE_PARAMS_3: DeclareParams = {
+  minDealt: 20,
+  thNone: 0.266,
+  thOpp: 0.325,
+  thPartner: 1.498, // never overrides partner
+  pairBonus: 0.092,
+  tripleBonus: 0.147,
+  jokerWeight: 1.79,
+  late: false,
+  lateTh: 0.48,
+};
 
 export const declareParamsFor = (decks: number) => (decks === 3 ? DECLARE_PARAMS_3 : DECLARE_PARAMS);
 
