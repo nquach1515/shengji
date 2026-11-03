@@ -4,12 +4,15 @@
 // Rounds use a predetermined dealer (the normal case after round 1), so declaring decides the trump suit.
 //   npx tsx scripts/ml/declare.ts search <candidates> <deals> <seed> <out.json>
 //   npx tsx scripts/ml/declare.ts confirm <deals> <out.json> '<params-json>'...
+// DECKS=3 tunes the 3-deck settings (DECLARE_PARAMS_3), keeping their minDealt.
 import { writeFileSync } from 'node:fs';
-import { botBury, botDeclare, botPlay, DECLARE_PARAMS, DeclareParams } from '../../src/game/bot';
+import { botBury, botDeclare, botPlay, declareParamsFor, DeclareParams } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 
 const nm = () => '';
+const DECKS = Number(process.env.DECKS ?? 2);
+const DECLARE_PARAMS = declareParamsFor(DECKS);
 
 /** Value of one dealt-and-played round from team 0's view (attacker points, signed). */
 function runRound(base: GameState, team0: DeclareParams, team1: DeclareParams): number {
@@ -39,7 +42,7 @@ function runRound(base: GameState, team0: DeclareParams, team1: DeclareParams): 
 function duplicate(a: DeclareParams, b: DeclareParams, deals: number): number[] {
   const out: number[] = [];
   for (let i = 0; i < deals; i++) {
-    const base = newGame();
+    const base = newGame(2, DECKS);
     base.dealer = Math.floor(Math.random() * 4);
     startRound(base);
     // per-side advantage of settings A over B
@@ -58,7 +61,7 @@ const stats = (xs: number[]) => {
 function randomParams(rng: () => number): DeclareParams {
   const u = (lo: number, hi: number) => lo + (hi - lo) * rng();
   return {
-    minDealt: 10 + Math.floor(rng() * 11), // 10..20: don't declare absurdly early
+    minDealt: DECKS === 3 ? DECLARE_PARAMS.minDealt : 10 + Math.floor(rng() * 11), // 10..20: don't declare absurdly early
     thNone: +u(0.25, 0.5).toFixed(3),
     thOpp: +u(0.3, 0.6).toFixed(3),
     thPartner: +u(0.5, 1.5).toFixed(3), // ≥1 means never override partner
@@ -66,6 +69,7 @@ function randomParams(rng: () => number): DeclareParams {
     jokerWeight: +u(0.8, 2.2).toFixed(2),
     late: rng() < 0.6,
     lateTh: +u(0.25, 0.5).toFixed(3),
+    ...(DECKS === 3 ? { tripleBonus: +u(0, 0.15).toFixed(3) } : {}),
   };
 }
 

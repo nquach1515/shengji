@@ -423,6 +423,8 @@ export interface DeclareParams {
   thPartner: number;
   /** bonus for declaring with a pair (harder to override) */
   pairBonus: number;
+  /** extra bonus for declaring with a triple (3 decks; only a bigger triple overrides it) */
+  tripleBonus?: number;
   /** how much a joker counts toward trump strength */
   jokerWeight: number;
   /** also consider declaring in the last-chance window after the deal, needing `lateTh` */
@@ -444,8 +446,13 @@ export const DECLARE_PARAMS: DeclareParams = {
   lateTh: 0.28,
 };
 
+/** 3 decks: untuned 2-deck values for now, waiting for about the same share of the hand (20 of 38 cards). */
+export const DECLARE_PARAMS_3: DeclareParams = { ...DECLARE_PARAMS, minDealt: 20, tripleBonus: 0 };
+
+export const declareParamsFor = (decks: number) => (decks === 3 ? DECLARE_PARAMS_3 : DECLARE_PARAMS);
+
 /** Declare when the hand would be strong in that trump suit. */
-export function botDeclare(s: GameState, seat: number, p: DeclareParams = DECLARE_PARAMS): DeclareOption | null {
+export function botDeclare(s: GameState, seat: number, p: DeclareParams = declareParamsFor(decksOf(s))): DeclareOption | null {
   const lateWindow = s.phase === 'declaring';
   if (lateWindow && !p.late) return null;
   const opts = declareOptions(s, seat);
@@ -460,7 +467,7 @@ export function botDeclare(s: GameState, seat: number, p: DeclareParams = DECLAR
     const trumpCount = suitLen + jokers * p.jokerWeight + rankCards;
     return {
       o,
-      score: trumpCount / dealt + (o.strength >= 2 ? p.pairBonus : 0) + (o.suit === 'NT' ? (jokers + rankCards) / dealt : 0),
+      score: trumpCount / dealt + (o.strength >= 2 ? p.pairBonus : 0) + (o.strength >= 5 ? (p.tripleBonus ?? 0) : 0) + (o.suit === 'NT' ? (jokers + rankCards) / dealt : 0),
     };
   });
   const best = scored.sort((a, b) => b.score - a.score)[0];
