@@ -28,6 +28,12 @@ const configs: Record<string, Policy> = {
       hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? cashTopCardMove(s, seat) ??
         searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT),
     ),
+  // live without the "never follow with a higher card than needed" rule (keepHighCards)
+  'live-no-keep': (s, seat) =>
+    hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT),
+  // live with 4x the sampled deals: how much would a faster search be worth?
+  'live-256': (s, seat) =>
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 256, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
   'live-new': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule

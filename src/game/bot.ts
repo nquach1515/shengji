@@ -425,7 +425,24 @@ export function botPlay(s: GameState, seat: number): string[] {
 // Burying & declaring
 
 /** Bury to create voids (for ruffing) while keeping trumps, aces, pairs and — mostly — points. */
-export function botBury(s: GameState, seat: number): string[] {
+/** How the dealer weighs each card when choosing what to bury (lower cost = buried first). */
+export interface BuryParams {
+  /** per card left in the card's suit: short suits first, so we can void them */
+  len: number;
+  /** per step of card value (2 low … A high) */
+  value: number;
+  /** per point the card is worth (the attackers win the kitty's points, doubled, if they take the last trick) */
+  points: number;
+  /** for a card that is part of a pair, and again for a triple */
+  pair: number;
+  triple: number;
+  /** for an ace */
+  ace: number;
+}
+
+export const BURY_PARAMS: BuryParams = { len: 6, value: 2, points: 4, pair: 60, triple: 60, ace: 80 };
+
+export function botBury(s: GameState, seat: number, p: BuryParams = BURY_PARAMS): string[] {
   const ctx = ctxOf(s);
   const hand = s.hands[seat];
   const counts = new Map<string, number>();
@@ -435,12 +452,12 @@ export function botBury(s: GameState, seat: number): string[] {
     if (isTrump(c, ctx)) return 1000 + cardValue(c, ctx);
     const len = groups.get(effSuit(c, ctx))!.length;
     return (
-      len * 6 + // short suits first, so we can void them
-      cardValue(c, ctx) * 2 +
-      points(c) * 4 +
-      (counts.get(cardKey(c))! > 1 ? 60 : 0) +
-      (counts.get(cardKey(c))! > 2 ? 60 : 0) + // keep triples whole
-      (c.rank === 14 ? 80 : 0)
+      len * p.len +
+      cardValue(c, ctx) * p.value +
+      points(c) * p.points +
+      (counts.get(cardKey(c))! > 1 ? p.pair : 0) +
+      (counts.get(cardKey(c))! > 2 ? p.triple : 0) + // keep triples whole
+      (c.rank === 14 ? p.ace : 0)
     );
   };
   return hand

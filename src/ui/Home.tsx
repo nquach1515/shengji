@@ -21,8 +21,8 @@ export const LENGTHS: { level: number; label: string; note: string }[] = [
   { level: 10, label: 'Quick', note: 'Start at 10 · a game in a few rounds' },
 ];
 export const DECK_OPTIONS: { decks: number; label: string; note: string }[] = [
-  { decks: 2, label: '2 decks', note: '25 cards each · 8-card kitty · 80 points takes the deal' },
-  { decks: 3, label: '3 decks', note: '38 cards each · 10-card kitty · triples · 120 points takes the deal' },
+  { decks: 2, label: '2 decks', note: '25 cards each · 8-card kitty · 80 to win' },
+  { decks: 3, label: '3 decks', note: '38 cards each · 10-card kitty · triples · 120 to win' },
 ];
 export const PACES: { pace: Pace; label: string }[] = [
   { pace: 'relaxed', label: 'Relaxed' },
