@@ -30,6 +30,17 @@ const configs: Record<string, Policy> = {
     ),
   'live-new': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
+  // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule
+  // left out in turn, to measure what it's worth.
+  'model-rules': (s, seat) => keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
+  'model-rules-no-keep': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat),
+  'model-rules-no-hopeless': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
+  'model-rules-no-feed': (s, seat) => keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
+  'model-rules-no-feed-likely': (s, seat) => keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? learnedPlay(s, seat)),
+  // live bots as they run with 3 decks (at least 16 samples), and the same without any extra rules
+  'live-16': (s, seat) =>
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 16, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
+  'search-16': (s, seat) => searchPlay(s, seat, 16, false, learnedPlay(s, seat), LEVEL_WEIGHT),
   heuristic: botPlay,
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,
