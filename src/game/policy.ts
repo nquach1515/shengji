@@ -3,10 +3,12 @@
  * Scores every sensible option from features that use only legitimately known information, and plays the best.
  */
 import { Card } from './cards';
-import { GameState } from './engine';
+import { decksOf, GameState } from './engine';
 import { decisionContext, FEATURE_NAMES, moveFeatures } from './features';
 import { moveOptions } from './search';
 import weights from './policyWeights.json';
+// 3 decks: fine-tuned from the 2-deck model on 3-deck games (scripts/ml/train_np.py --init)
+import weights3 from './policyWeights3.json';
 
 interface Weights {
   features: string[];
@@ -15,9 +17,10 @@ interface Weights {
   layers: { W: number[][]; b: number[] }[];
 }
 const net = weights as Weights;
+const net3 = weights3 as Weights;
 // weights may use a leading subset of the features (an older model after new features were added)
 const fits = (w: Weights) => w.features.every((f, i) => f === FEATURE_NAMES[i]);
-if (!fits(net)) throw new Error('policy weights were trained on different features');
+if (!fits(net) || !fits(net3)) throw new Error('policy weights were trained on different features');
 
 function score(x: number[], net: Weights): number {
   let h = x.slice(0, net.features.length).map((v, i) => (v - net.mean[i]) / net.std[i]);
@@ -35,7 +38,7 @@ function score(x: number[], net: Weights): number {
 }
 
 export function learnedPlay(s: GameState, seat: number): string[] {
-  return playWith(net, s, seat);
+  return playWith(decksOf(s) === 3 ? net3 : net, s, seat);
 }
 
 /** A policy using other trained weights (for comparing a retrained model against the live one). */
