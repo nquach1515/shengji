@@ -79,5 +79,3 @@ export interface PlayerView {
 
 export type ClientMsg = { t: 'hello'; clientId: string; name: string } | { t: 'action'; action: Action };
 export type HostMsg = { t: 'view'; view: PlayerView } | { t: 'reject'; reason: string };
-
-export const PEER_PREFIX = 'shengji-tractor-v1-';

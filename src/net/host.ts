@@ -1,4 +1,3 @@
-import { DataConnection, Peer } from 'peerjs';
 import { botBury, botDeclare, botPlay, suggest } from '../game/bot';
 import { sortHand } from '../game/rules';
 import {
@@ -19,11 +18,11 @@ import {
   resetToLobby,
   startRound,
 } from '../game/engine';
-import { Action, ClientMsg, HostMsg, Pace, PEER_PREFIX, PlayerView, Settings } from './protocol';
+import { Action, ClientMsg, HostMsg, Pace, PlayerView, Settings } from './protocol';
 import { reliableTimeout } from './timer';
 import { redactFor } from '../game/info';
 import { randomInt } from '../game/cards';
-import { iceServers } from './ice';
+import { keepAlive, PlayerLink, roomUrl } from './relay';
 
 export interface SeatInfo {
   clientId: string;
@@ -87,8 +86,9 @@ export class HostController {
   settings: Settings = { startLevel: 2, pace: 'normal' };
   status: NetStatus = 'offline';
   statusDetail = '';
-  private peer: Peer | null = null;
-  private conns = new Map<string, DataConnection>();
+  private socket: WebSocket | null = null;
+  private links = new Map<string, PlayerLink>();
+  private conns = new Map<string, PlayerLink>();
   private errors = new Map<string, { id: number; text: string }>();
   private errorSeq = 0;
   private hints = new Map<string, { id: number; cardIds: string[] }>();
@@ -120,48 +120,63 @@ export class HostController {
       this.state = newGame(this.settings.startLevel);
       this.seats = [{ clientId: hostClientId, name: hostName, isBot: false, online: true }, null, null, null];
     }
-    if (online) this.openPeer(0);
+    if (online) this.openRelay(0);
     this.pump();
   }
 
   // ---------- networking ----------
 
-  private openPeer(attempt: number) {
+  private openRelay(attempt: number) {
+    if (this.destroyed) return;
     this.status = 'connecting';
-    void iceServers().then((servers) => !this.destroyed && this.startPeer(servers, attempt));
-  }
-
-  private startPeer(servers: RTCIceServer[], attempt: number) {
-    const peer = new Peer(PEER_PREFIX + this.code, { debug: 0, config: { iceServers: servers } });
-    this.peer = peer;
-    peer.on('open', () => {
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(roomUrl(this.code, 'host'));
+    } catch {
+      setTimeout(() => this.openRelay(attempt + 1), 3000);
+      return;
+    }
+    this.socket = ws;
+    const stopPing = keepAlive(ws);
+    ws.onopen = () => {
       this.status = 'online';
+      this.statusDetail = '';
+      attempt = 0;
       this.emit();
-    });
-    peer.on('connection', (conn) => this.attach(conn));
-    peer.on('disconnected', () => {
-      if (!this.destroyed && !peer.destroyed) setTimeout(() => peer.reconnect(), 1500);
-    });
-    peer.on('error', (err) => {
-      const type = (err as { type?: string }).type;
-      if (type === 'unavailable-id' && attempt < 8) {
-        // Usually our own previous session (after a refresh) still holds the id for a few seconds.
-        this.statusDetail = 'Reclaiming room code…';
-        peer.destroy();
-        setTimeout(() => !this.destroyed && this.openPeer(attempt + 1), 2500);
-      } else if (type === 'network' || type === 'server-error' || type === 'socket-error') {
-        this.status = 'error';
-        this.statusDetail = 'Lost connection to the matchmaking server — retrying…';
-        setTimeout(() => !this.destroyed && !peer.destroyed && peer.reconnect(), 3000);
-      } else if (type !== 'peer-unavailable') {
-        this.status = 'error';
-        this.statusDetail = String(err.message ?? err);
+    };
+    ws.onmessage = (e) => {
+      if (typeof e.data !== 'string' || e.data === 'pong') return;
+      const msg = JSON.parse(e.data) as { k: 'open' | 'msg' | 'close'; id: string; data?: unknown };
+      if (msg.k === 'open') {
+        const link = new PlayerLink(msg.id, ws);
+        this.links.set(msg.id, link);
+        this.attach(link);
+      } else if (msg.k === 'msg') this.links.get(msg.id)?.deliver(msg.data);
+      else {
+        this.links.get(msg.id)?.closed();
+        this.links.delete(msg.id);
       }
+    };
+    ws.onclose = (e) => {
+      stopPing();
+      // players' links went down with the socket; they reconnect on their own once we're back
+      for (const link of this.links.values()) link.closed();
+      this.links.clear();
+      if (this.destroyed || this.socket !== ws) return;
+      if (e.code === 4000) {
+        this.status = 'error';
+        this.statusDetail = 'This table was opened in another tab';
+        this.emit();
+        return;
+      }
+      this.status = 'error';
+      this.statusDetail = 'Lost connection to the server — retrying…';
       this.emit();
-    });
+      setTimeout(() => this.openRelay(attempt + 1), Math.min(10000, 1000 * 2 ** attempt));
+    };
   }
 
-  private attach(conn: DataConnection) {
+  private attach(conn: PlayerLink) {
     let clientId: string | null = null;
     conn.on('data', (raw) => {
       const msg = raw as ClientMsg;
@@ -246,7 +261,7 @@ export class HostController {
     this.destroyed = true;
     this.worker?.terminate();
     this.cancelTimer?.();
-    this.peer?.destroy();
+    this.socket?.close();
     this.listeners.clear();
   }
 

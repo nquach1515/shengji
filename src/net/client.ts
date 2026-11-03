@@ -1,9 +1,8 @@
-import { DataConnection, Peer } from 'peerjs';
 import { HostController, NetStatus } from './host';
-import { iceServers, relayConfigured } from './ice';
-import { Action, ClientMsg, HostMsg, PEER_PREFIX, PlayerView } from './protocol';
+import { Action, ClientMsg, HostMsg, PlayerView } from './protocol';
+import { keepAlive, roomUrl } from './relay';
 
-/** What the UI talks to — either the in-browser host, or a remote host over WebRTC. */
+/** What the UI talks to — either the in-browser host, or a remote host through the relay. */
 export interface GameConnection {
   view(): PlayerView | null;
   status(): { state: NetStatus | 'rejected'; detail: string };
@@ -56,10 +55,10 @@ export class RemoteConnection implements GameConnection {
   private current: PlayerView | null = null;
   private state: NetStatus | 'rejected' = 'connecting';
   private detail = 'Connecting…';
-  private peer: Peer | null = null;
-  private conn: DataConnection | null = null;
+  private socket: WebSocket | null = null;
   private listeners = new Set<() => void>();
   private left = false;
+  private failures = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -67,7 +66,7 @@ export class RemoteConnection implements GameConnection {
     private clientId: string,
     private name: string,
   ) {
-    this.start();
+    this.connect();
   }
 
   private emit() {
@@ -80,77 +79,55 @@ export class RemoteConnection implements GameConnection {
     this.emit();
   }
 
-  private start() {
-    void iceServers().then((servers) => !this.left && this.startPeer(servers));
-  }
-
-  private startPeer(servers: RTCIceServer[]) {
-    const peer = new Peer({ debug: 0, config: { iceServers: servers } });
-    this.peer = peer;
-    peer.on('open', () => this.connect());
-    peer.on('error', (err) => {
-      const type = (err as { type?: string }).type;
-      if (type === 'peer-unavailable') {
-        this.setStatus('error', this.current ? 'Host disconnected — waiting for them to come back…' : `No table found with code ${this.code}`);
-        this.retry(this.current ? 3000 : 5000);
-      } else {
-        this.setStatus('error', 'Connection problem — retrying…');
-        this.retry(3000);
-      }
-    });
-    peer.on('disconnected', () => {
-      if (!this.left && !peer.destroyed) setTimeout(() => peer.reconnect(), 1500);
-    });
-  }
-
   private connect() {
-    if (!this.peer || this.left) return;
-    const conn = this.peer.connect(PEER_PREFIX + this.code, { reliable: true });
-    this.conn = conn;
-    // If no connection forms, say so instead of spinning forever (usually a network that needs a relay).
-    const stuck = setTimeout(() => {
-      if (conn.open || this.left) return;
-      this.setStatus(
-        'error',
-        relayConfigured()
-          ? 'Still trying to reach the host — retrying…'
-          : "Can't connect to the host. On the same Wi-Fi as the host? Switch this device to cellular data — retrying…",
-      );
-      conn.close();
+    if (this.left) return;
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(roomUrl(this.code, 'player'));
+    } catch {
       this.retry(3000);
-    }, 15000);
-    conn.on('open', () => {
-      clearTimeout(stuck);
-      conn.send({ t: 'hello', clientId: this.clientId, name: this.name } satisfies ClientMsg);
-      this.setStatus('online', '');
-    });
-    conn.on('data', (raw) => {
-      const msg = raw as HostMsg;
+      return;
+    }
+    this.socket = ws;
+    const stopPing = keepAlive(ws);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ t: 'hello', clientId: this.clientId, name: this.name } satisfies ClientMsg));
+    };
+    ws.onmessage = (e) => {
+      if (typeof e.data !== 'string' || e.data === 'pong') return;
+      const msg = JSON.parse(e.data) as HostMsg;
       if (msg.t === 'view') {
+        this.failures = 0;
         this.current = msg.view;
-        this.emit();
+        if (this.state !== 'online') this.setStatus('online', '');
+        else this.emit();
       } else if (msg.t === 'reject') {
         this.left = true;
         this.setStatus('rejected', msg.reason);
       }
-    });
-    conn.on('close', () => {
-      if (this.left) return;
-      this.setStatus('connecting', 'Reconnecting to host…');
-      this.retry(2000);
-    });
+    };
+    ws.onclose = (e) => {
+      stopPing();
+      if (this.left || this.socket !== ws) return;
+      this.failures++;
+      if (e.code === 4004 || e.code === 4003) {
+        this.setStatus('error', this.current ? 'Host disconnected — waiting for them to come back…' : `No table found with code ${this.code}`);
+        this.retry(this.current ? 3000 : 5000);
+      } else if (e.code === 4001) {
+        this.setStatus('connecting', 'Reconnecting to host…');
+        this.retry(2000);
+      } else {
+        this.setStatus(this.failures > 2 ? 'error' : 'connecting', this.failures > 2 ? "Can't reach the game server — retrying…" : 'Reconnecting…');
+        this.retry(Math.min(10000, 1000 * 2 ** this.failures));
+      }
+    };
   }
 
   private retry(ms: number) {
     if (this.left || this.retryTimer) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
-      if (this.left) return;
-      if (this.peer && !this.peer.destroyed && this.peer.open) this.connect();
-      else {
-        this.peer?.destroy();
-        this.start();
-      }
+      this.connect();
     }, ms);
   }
 
@@ -161,7 +138,7 @@ export class RemoteConnection implements GameConnection {
     return { state: this.state, detail: this.detail };
   }
   send(action: Action) {
-    if (this.conn?.open) this.conn.send({ t: 'action', action } satisfies ClientMsg);
+    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify({ t: 'action', action } satisfies ClientMsg));
   }
   subscribe(fn: () => void) {
     this.listeners.add(fn);
@@ -170,7 +147,6 @@ export class RemoteConnection implements GameConnection {
   leave() {
     this.left = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.conn?.close();
-    this.peer?.destroy();
+    this.socket?.close();
   }
 }

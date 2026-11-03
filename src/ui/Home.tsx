@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../game/cards';
 import { loadSavedHost } from '../net/host';
 import { Pace, Settings } from '../net/protocol';
@@ -61,6 +61,12 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const [rules, setRules] = useState(false);
   const inviteCode = /^[a-z]{4}$/i.test(urlCode) ? urlCode.toUpperCase() : '';
   const [showInvite, setShowInvite] = useState(!!inviteCode);
+
+  // the host refreshed their own table's page: go straight back in instead of showing them an invite to it
+  const ownTable = !!inviteCode && saved?.code === inviteCode;
+  useEffect(() => {
+    if (ownTable) onStart({ kind: 'resume' }, 'Player');
+  }, []);
 
   const go = (mode: StartMode) => {
     onStart(mode, name.trim().slice(0, 16) || 'Player');

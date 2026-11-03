@@ -1,12 +1,13 @@
 # Tractor 升级
 
-Shengji / Tractor for 4 players (2 decks), playable online with friends. No server and no database.
+Shengji / Tractor for 4 players (2 decks), playable online with friends. No database; a tiny relay server forwards messages.
 
 ## How it works
 
 - It's a static site (Vite + React + TypeScript). Any free static host works.
-- Multiplayer is peer-to-peer over WebRTC via [PeerJS](https://peerjs.com). PeerJS's free public server
-  only introduces browsers to each other. Game traffic goes directly between players.
+- Multiplayer goes through a small WebSocket relay (`relay/`, a Cloudflare Worker with one Durable Object per
+  room code). Everyone, host included, connects to it over `wss://`, which gets through VPNs and work networks
+  that block browser-to-browser connections. The relay only forwards messages and stores nothing.
 - The **host's browser runs the game**: it shuffles, deals, enforces the rules, and sends each player only
   their own hand. The host should keep their tab open. If the host refreshes, choose **Resume your table**
   and everyone reconnects automatically.
@@ -21,6 +22,16 @@ npm run dev        # http://localhost:5173
 npm run sim        # headless rules checks + bot-vs-bot games
 npm run build      # production build in dist/
 ```
+
+## Deploy the relay (free Cloudflare account)
+
+```sh
+cd relay && npm install
+npx wrangler login
+npx wrangler deploy   # prints https://shengji-relay.<subdomain>.workers.dev
+```
+
+Put that address (as `wss://…`) in `RELAY_URL` in `src/net/relay.ts`.
 
 ## Deploy to GitHub Pages (free)
 
