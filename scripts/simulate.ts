@@ -1,5 +1,5 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
-import { basicPlay, botBury, botDeclare, botPlay } from '../src/game/bot';
+import { basicPlay, botBury, botDeclare, botPlay, legalFollow } from '../src/game/bot';
 import { searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
@@ -14,6 +14,7 @@ import {
   newGame,
   nextRound,
   play,
+  rulesFor,
   startRound,
 } from '../src/game/engine';
 import { checkThrow, validateFollow, cardValue, decompose, trickWinner, TrumpCtx } from '../src/game/rules';
@@ -175,6 +176,99 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   const m = settledTrickMove(redactFor(g, 0), 0);
   assert(m !== null && m.includes('0D13'), `last to play behind partner's winning pair: feed the K (played ${m})`);
 }
+// --- three decks: triples ---
+{
+  const c3: TrumpCtx = { suit: 'H', rank: 2 };
+  const T = (suit: Card['suit'], rank: number) => [0, 1, 2].map((d) => C(suit, rank, d));
+  const d1 = decompose(T('S', 9), c3);
+  assert(d1.length === 1 && d1[0].kind === 'triple' && d1[0].width === 3, 'three identical cards are a triple');
+  const d2 = decompose([...T('S', 9), ...T('S', 10)], c3);
+  assert(d2.length === 1 && d2[0].kind === 'tractor' && d2[0].width === 3 && d2[0].len === 2, 'consecutive triples are a tractor');
+  const d3 = decompose([...T('S', 14), C('S', 13), C('S', 13, 1)], c3);
+  assert(d3.length === 2 && d3[0].kind === 'triple' && d3[1].kind === 'pair', 'AAA KK is a triple and a pair');
+  // following a triple: a triple if you have one, otherwise a pair
+  const lead3 = T('S', 9);
+  const withTriple = [...T('S', 4), C('S', 6), C('S', 6, 1), C('S', 7)];
+  assert(validateFollow([C('S', 6), C('S', 6, 1), C('S', 7)], withTriple, lead3, c3) !== null, 'must play the triple');
+  assert(validateFollow(T('S', 4), withTriple, lead3, c3) === null, 'triple follows triple');
+  const withPair = [C('S', 6), C('S', 6, 1), C('S', 7), C('S', 8)];
+  assert(validateFollow([C('S', 6), C('S', 7), C('S', 8)], withPair, lead3, c3) !== null, 'no triple: must play a pair');
+  assert(validateFollow([C('S', 6), C('S', 6, 1), C('S', 8)], withPair, lead3, c3) === null, 'pair + single follows a triple');
+  // a pair lead can be answered from a triple
+  const onlyTriple = [...T('S', 4), C('S', 7)];
+  assert(validateFollow([C('S', 4), C('S', 7)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) !== null, 'pair from a triple is required');
+  assert(validateFollow([C('S', 4), C('S', 4, 1)], onlyTriple, [C('S', 9), C('S', 9, 1)], c3) === null, 'pair from a triple ok');
+  // triple tractor: answer with a triple tractor, else a pair tractor
+  const leadTT = [...T('S', 9), ...T('S', 10)];
+  const handTT = [...T('S', 5), ...T('S', 6), C('S', 12), C('S', 13)];
+  assert(validateFollow([...T('S', 5), C('S', 6), C('S', 12), C('S', 13)], handTT, leadTT, c3) !== null, 'must play the triple tractor');
+  assert(validateFollow([...T('S', 5), ...T('S', 6)], handTT, leadTT, c3) === null, 'triple tractor follows');
+  const handPT = [C('S', 5), C('S', 5, 1), C('S', 6), C('S', 6, 1), C('S', 12), C('S', 13), C('S', 3)];
+  assert(validateFollow([C('S', 5), C('S', 5, 1), C('S', 12), C('S', 13), C('S', 3), C('S', 6)], handPT, leadTT, c3) !== null, 'no triple tractor: must play the pair tractor');
+  assert(validateFollow([C('S', 5), C('S', 5, 1), C('S', 6), C('S', 6, 1), C('S', 12), C('S', 13)], handPT, leadTT, c3) === null, 'pair tractor follows a triple tractor');
+  // giving triples for a triple tractor doesn't also require a pair tractor (both wouldn't fit in 6 cards)
+  const twoTriples = [...T('S', 4), ...T('S', 12), C('S', 6), C('S', 6, 1), C('S', 7), C('S', 7, 1)];
+  assert(validateFollow([...T('S', 4), ...T('S', 12)], twoTriples, leadTT, c3) === null, 'two triples answer a triple tractor');
+  const bf = legalFollow(twoTriples, leadTT, c3);
+  assert(bf.length === 6 && validateFollow(bf, twoTriples, leadTT, c3) === null, 'bot follows a triple tractor with two triples');
+  // a throw of a triple and a pair tractor, answered with a triple that also forms the tractor
+  const leadMix = [...T('S', 13), C('S', 9), C('S', 9, 1), C('S', 10), C('S', 10, 1)];
+  const mixHand = [...T('S', 5), C('S', 6), C('S', 6, 1), C('S', 3), C('S', 8), C('S', 11)];
+  const mf = legalFollow(mixHand, leadMix, c3);
+  assert(mf.length === 7 && validateFollow(mf, mixHand, leadMix, c3) === null, 'bot builds 555 66 for a triple + tractor throw');
+  // winning: only a higher triple (or a trump triple) beats a triple
+  const w3 = trickWinner(
+    [
+      { seat: 0, cards: T('S', 9) },
+      { seat: 1, cards: [C('S', 14), C('S', 14, 1), C('S', 13)] },
+      { seat: 2, cards: T('S', 11) },
+      { seat: 3, cards: [C('H', 5), C('H', 5, 1), C('H', 6)] },
+    ],
+    c3,
+  );
+  assert(w3 === 2, 'higher triple wins; a pair + single and trump pair + single do not');
+  const w4 = trickWinner([{ seat: 0, cards: T('S', 9) }, { seat: 1, cards: T('H', 3) }, { seat: 2, cards: T('S', 11) }, { seat: 3, cards: T('S', 3) }], c3);
+  assert(w4 === 1, 'trump triple ruffs a triple');
+  // a triple in a throw is blocked by a higher triple
+  const f3 = checkThrow([...T('S', 13), C('S', 14)], [[...T('S', 14).slice(1), C('S', 3)], T('S', 14).slice(0, 0)], c3);
+  assert(f3 === null, 'nobody holds a higher triple or single: throw stands');
+  const f4 = checkThrow([...T('S', 12), C('S', 14)], [[...T('S', 13)]], c3);
+  assert(f4 !== null && f4.kind === 'triple', 'throw fails on the Q triple');
+  // declaring: a triple outranks any pair, and only a bigger triple outranks it
+  const g = newGame(2, 3);
+  startRound(g);
+  g.hands[0] = [C('J', 16), C('J', 16, 1)];
+  g.hands[1] = T('C', 2);
+  g.hands[2] = [C('D', 2), C('D', 2, 1)];
+  g.hands[3] = T('J', 15);
+  assert(declare(g, 0, ['0J16', '1J16']) === null, 'big joker pair declares');
+  const tri = declareOptions(g, 1).find((o) => o.strength === 5);
+  assert(tri && declare(g, 1, tri.cardIds) === null && g.trumpSuit === 'C', 'rank triple overrides a joker pair');
+  assert(declareOptions(g, 2).length === 0, 'a pair cannot override a triple');
+  const jt = declareOptions(g, 3).find((o) => o.suit === 'NT');
+  assert(jt && jt.strength === 6, 'small-joker triple overrides a rank triple');
+  // 3-deck scoring: 120 to win, every 40 a level
+  const levelsAt = (pts: number) => {
+    const r = newGame(2, 3);
+    startRound(r);
+    r.dealer = 0;
+    r.trumpSuit = 'S';
+    r.phase = 'playing';
+    r.hands = [[C('S', 3)], [C('S', 4)], [C('S', 6)], [C('S', 7)]];
+    r.kitty = [];
+    r.attackerPoints = pts;
+    r.trick = { leader: 0, plays: [], winner: null, points: 0 };
+    r.turn = 0;
+    for (let i = 0; i < 4; i++) play(r, r.turn, [r.hands[r.turn][0].id], names);
+    collectTrick(r, names);
+    return [r.result!.winnerTeam, r.result!.levelsGained];
+  };
+  const expect: [number, number, number][] = [[0, 0, 3], [35, 0, 3], [40, 0, 2], [75, 0, 2], [80, 0, 1], [115, 0, 1], [120, 1, 0], [155, 1, 0], [160, 1, 1], [200, 1, 2]];
+  for (const [pts, team, gained] of expect) {
+    const [t, gn] = levelsAt(pts);
+    assert(t === team && gn === gained, `3 decks, ${pts} points: team ${team} +${gained} (got team ${t} +${gn})`);
+  }
+}
 console.log('rule checks passed');
 
 // --- full games: team 0 (seats 0, 2) plays the strong bot, team 1 a simple baseline ---
@@ -183,9 +277,11 @@ let throwsFailed = 0;
 const wins = [0, 0];
 const games = Number(process.argv[2] ?? 30);
 const mode = process.argv[3] ?? 'vs';
+const decks = Number(process.argv[4] ?? 2);
+const deckRules = rulesFor(decks);
 const player = (seat: number) => (mode === 'vs' && seat % 2 === 1 ? basicPlay : botPlay);
 for (let g = 0; g < games; g++) {
-  const s = newGame();
+  const s = newGame(2, decks);
   startRound(s);
   for (let guard = 0; guard < 200 && s.phase !== 'gameOver'; guard++) {
     while (s.phase === 'dealing') {
@@ -194,7 +290,8 @@ for (let g = 0; g < games; g++) {
       if (opt) assert(declare(s, seat, opt.cardIds) === null, 'bot declare valid');
     }
     finalizeDeclaration(s);
-    assert(s.hands[s.dealer!].length === 33, 'dealer has 33');
+    const handSize = (54 * decks - deckRules.kitty) / 4;
+    assert(s.hands[s.dealer!].length === handSize + deckRules.kitty, `dealer has ${handSize + deckRules.kitty}`);
     assert(bury(s, s.dealer!, botBury(s, s.dealer!)) === null, 'bury ok');
     while (s.phase === 'playing') {
       const seat = s.turn;
@@ -211,7 +308,7 @@ for (let g = 0; g < games; g++) {
       }
     }
     const r = s.result!;
-    assert(r.attackerPoints - r.kittyBonus <= 200, 'points <= 200');
+    assert(r.attackerPoints - r.kittyBonus <= deckRules.points, `points <= ${deckRules.points}`);
     assert(totalPoints(r.kitty) === r.kittyPoints, 'kitty points');
     rounds++;
     if (s.phase === 'roundEnd') nextRound(s);
@@ -219,5 +316,5 @@ for (let g = 0; g < games; g++) {
   assert(s.phase === 'gameOver', 'game finished');
   wins[s.result!.gameWinner!]++;
 }
-console.log(`${games} games, ${rounds} rounds simulated OK (${throwsFailed} failed throws)`);
+console.log(`${decks} decks: ${games} games, ${rounds} rounds simulated OK (${throwsFailed} failed throws)`);
 console.log(`games won — strong team: ${wins[0]}, ${mode === 'vs' ? 'baseline' : 'strong'} team: ${wins[1]}`);

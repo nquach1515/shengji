@@ -20,6 +20,10 @@ export const LENGTHS: { level: number; label: string; note: string }[] = [
   { level: 7, label: 'Shorter', note: 'Start at 7 · about half the rounds' },
   { level: 10, label: 'Quick', note: 'Start at 10 · a game in a few rounds' },
 ];
+export const DECK_OPTIONS: { decks: number; label: string; note: string }[] = [
+  { decks: 2, label: '2 decks', note: '25 cards each · 8-card kitty · 80 points takes the deal' },
+  { decks: 3, label: '3 decks', note: '38 cards each · 10-card kitty · triples · 120 points takes the deal' },
+];
 export const PACES: { pace: Pace; label: string }[] = [
   { pace: 'relaxed', label: 'Relaxed' },
   { pace: 'normal', label: 'Normal' },
@@ -57,7 +61,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
-  const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal' });
+  const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal', decks: 2 });
   const [rules, setRules] = useState(false);
   const inviteCode = /^[a-z]{4}$/i.test(urlCode) ? urlCode.toUpperCase() : '';
   const [showInvite, setShowInvite] = useState(!!inviteCode);
@@ -130,7 +134,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
           <div className="en">Sheng Ji · Tractor</div>
         </motion.div>
         <motion.div className="tagline" initial={{ opacity: 0 }} animate={{ opacity: 0.85 }} transition={{ delay: 0.55 }}>
-          The classic Chinese partnership card game. Two decks, four players, one climb from 2 to Ace.
+          The classic Chinese partnership card game. Two or three decks, four players, one climb from 2 to Ace.
         </motion.div>
 
         <motion.div className="name-row" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
@@ -167,6 +171,16 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
               />
             </div>
             <div className="opt-note">{length.note}</div>
+            <div className="opt-row">
+              <span className="label">Decks</span>
+              <Segmented
+                id="decks"
+                options={DECK_OPTIONS.map((d) => ({ value: d.decks, label: d.label }))}
+                value={settings.decks}
+                onChange={(decks) => setSettings((s) => ({ ...s, decks }))}
+              />
+            </div>
+            <div className="opt-note">{DECK_OPTIONS.find((d) => d.decks === settings.decks)!.note}</div>
             <div className="opt-row">
               <span className="label">Pace</span>
               <Segmented
@@ -238,19 +252,19 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
       <ul>
         <li>Four players, partners sit across. Both teams start at a level (2 in a classic game) and climb to Ace.</li>
         <li>The dealing team defends; the other team attacks by capturing points: 5s are worth 5, 10s and Ks 10.</li>
-        <li>Attackers need 80 of the 200 points to take over the deal; every 40 more is a level up for them.</li>
+        <li>Attackers need 80 of the 200 points to take over the deal; every 40 more is a level up for them. With 3 decks: 120 of 300.</li>
       </ul>
       <h3>Trump</h3>
       <ul>
-        <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump.</li>
+        <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump. With 3 decks, any triple beats any pair.</li>
         <li>Trump order: big joker, small joker, level card in trump suit, other level cards, then trump suit A down to 2.</li>
-        <li>The dealer picks up the 8-card kitty and buries 8 cards.</li>
+        <li>The dealer picks up the kitty (8 cards, or 10 with 3 decks) and buries the same number.</li>
       </ul>
       <h3>Playing tricks</h3>
       <ul>
-        <li>Lead a single, a pair, a tractor (consecutive pairs), or several combos of one suit at once (a throw).</li>
+        <li>Lead a single, a pair, a tractor (consecutive pairs), or several combos of one suit at once (a throw). With 3 decks there are also triples and triple tractors.</li>
         <li>A throw only stands if no one can beat any part of it, including by trumping: anyone out of that suit who holds trumps matching a part's shape blocks it. Otherwise only the beatable part is played, and the cards you take back are shown to everyone.</li>
-        <li>Follow suit with the same number of cards, and match pairs/tractors when you can. If you're out of the suit, you may trump.</li>
+        <li>Follow suit with the same number of cards, and match pairs/tractors when you can. A triple calls for a triple, or a pair if you have no triple. If you're out of the suit, you may trump.</li>
         <li>If attackers win the last trick, they also win the kitty's points, doubled.</li>
       </ul>
       <button className="btn primary" onClick={onClose}>

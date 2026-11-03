@@ -6,15 +6,17 @@
 // alternative and overrides only on a clear win. In a 240-deal duplicate match this beat the model alone by
 // +8.8 +/- 1.8 points per round. Playouts are scored by points plus the level outcome (LEVEL_WEIGHT), so crossing a
 // score threshold counts for more than a point either side of it.
-import { GameState } from './engine';
+import { decksOf, GameState } from './engine';
 import { learnedPlay } from './policy';
 import { feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, searchPlayTimed } from './search';
 
 self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; budgetMs: number }>) => {
   const { id, state, seat, budgetMs } = e.data;
   let ids: string[] | null = null;
+  // 3-deck playouts are longer, so fewer guaranteed samples keep the slowest moves as quick as with 2 decks
+  const minSamples = decksOf(state) === 3 ? 16 : 32;
   try {
-    ids = keepHighCards(state, seat, hopelessTrickMove(state, seat) ?? feedTrickMove(state, seat) ?? feedLikelyMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), 32, 400, LEVEL_WEIGHT));
+    ids = keepHighCards(state, seat, hopelessTrickMove(state, seat) ?? feedTrickMove(state, seat) ?? feedLikelyMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), minSamples, 400, LEVEL_WEIGHT));
   } catch {
     ids = null;
   }

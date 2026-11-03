@@ -3,7 +3,7 @@
 //   npx tsx scripts/ml/match.ts <A> <B> [deals]   configs: heuristic | search-leads | learned | learned-leads | learned+search-leads
 import { writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
-import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
+import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
@@ -58,12 +58,14 @@ const [a, b] = [process.argv[2], process.argv[3]];
 const deals = Number(process.argv[4] ?? 200);
 const rawOut = process.argv[5]; // optional: write per-deal results here for pooling parallel runs
 if (!configs[a] || !configs[b]) throw new Error(`configs: ${Object.keys(configs).join(', ')}`);
+// DECKS=3 plays 3-deck deals
+const DECKS = Number(process.env.DECKS ?? 2);
 const nm = () => '';
 const advs: number[] = [];
 const levelAdvs: number[] = []; // level outcome (levels gained, ±0.5 for the deal), same duplicate pairing
 const t0 = Date.now();
 for (let i = 0; i < deals; i++) {
-  const base = newGame();
+  const base = newGame(2, DECKS);
   startRound(base);
   while (base.phase === 'dealing') {
     const seat = dealOne(base, 0);
@@ -81,7 +83,7 @@ for (let i = 0; i < deals; i++) {
       if (s.trick!.winner !== null) collectTrick(s, nm);
     }
     const sign = s.dealer! % 2 === 0 ? -1 : 1; // team 0's view
-    return [sign * s.result!.attackerPoints, sign * (attackerValue(s.result!.attackerPoints, 1) - s.result!.attackerPoints)];
+    return [sign * s.result!.attackerPoints, sign * (attackerValue(s.result!.attackerPoints, 1, rulesOf(s)) - s.result!.attackerPoints)];
   };
   const [r0, r1] = [run(0), run(1)];
   advs.push((r0[0] - r1[0]) / 2);

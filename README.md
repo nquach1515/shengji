@@ -1,6 +1,6 @@
 # Tractor 升级
 
-Shengji / Tractor for 4 players (2 decks), playable online with friends. No database; a tiny relay server forwards messages.
+Shengji / Tractor for 4 players (2 or 3 decks), playable online with friends. No database; a tiny relay server forwards messages.
 
 ## How it works
 
@@ -48,13 +48,16 @@ Netlify, Vercel or Cloudflare Pages also work. Use build command `npm run build`
 - Declaring during the deal: one rank card declares; a pair of rank cards beats a single; a pair of
   small jokers and then big jokers declare no-trump. If nobody declares, the kitty is flipped.
 - The dealer takes the 8-card kitty and buries 8.
+- 3 decks (an option when setting up a game): 38 cards each and a 10-card kitty. Triples (three identical cards)
+  and triple tractors join the combinations; a triple must be followed with a triple, or else a pair, and only a
+  higher triple (or a trump triple) beats one. Declaring with a triple beats any pair. Attackers need 120 of the
+  300 points; every 40 either side is a level.
 - Singles, pairs and tractors (consecutive pairs, skipping the trump rank). You must follow suit,
   pairs and tractors when you can.
 - Throws (multi-combo leads) only stand if no one can beat any part, in suit or (house rule) by trumping: a player
   out of the suit with trumps matching a part's shape blocks it. Otherwise the leader plays the beatable part and
   the cards they take back are revealed to everyone.
-- Points: 5s = 5, 10s and Ks = 10. If attackers win the last trick, kitty points × 2^(cards in that lead):
-  ×2 single, ×4 pair, ×16 two-pair tractor, capped at ×64.
+- Points: 5s = 5, 10s and Ks = 10. If attackers win the last trick, they also win the kitty's points, doubled.
 
 Rules follow the standard game as described in [ShengJi+ (Berkeley EECS-2023-127)](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2023/Archive/EECS-2023-127.pdf);
 the optional bidding phase (炒底) is not included.

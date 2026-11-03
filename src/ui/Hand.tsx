@@ -38,7 +38,7 @@ export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
   const cw = cardWidth(stage.w);
   const ch = cw * 1.4;
 
-  // Layout: group by effective suit with small gaps; wrap into two rows when the fan gets too tight.
+  // Layout: group by effective suit with small gaps; wrap into two (or, with 3 decks, three) rows when the fan gets too tight.
   const n = cards.length;
   const groupGap = cw * 0.2;
   const layoutRow = (row: Card[]) => {
@@ -53,9 +53,12 @@ export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
     const start = (width - total) / 2;
     return row.map((_, i) => start + i * step + groupIdx[i] * groupGap);
   };
-  const oneRowStep = (width - cw - 4 * groupGap) / Math.max(1, n - 1);
-  const twoRows = n > 14 && oneRowStep < cw * 0.3;
-  const rows = twoRows ? [cards.slice(0, Math.ceil(n / 2)), cards.slice(Math.ceil(n / 2))] : [cards];
+  const rowStep = (count: number) => (width - cw - 4 * groupGap) / Math.max(1, Math.ceil(n / count) - 1);
+  // three rows only for 3-deck hands (a 2-deck hand is at most 33 cards)
+  const rowCount = n <= 14 || rowStep(1) >= cw * 0.3 ? 1 : n <= 40 || rowStep(2) >= cw * 0.24 ? 2 : 3;
+  const twoRows = rowCount > 1;
+  const perRow = Math.ceil(n / rowCount);
+  const rows = Array.from({ length: rowCount }, (_, r) => cards.slice(r * perRow, (r + 1) * perRow));
   const lift = cw * 0.34;
   const rowOffset = ch * 0.52;
   const height = ch + (rows.length - 1) * rowOffset + lift + cw * 0.3;

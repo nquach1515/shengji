@@ -27,6 +27,7 @@ FEATURES = [
     "unseen_higher_in_move_suit", "heuristic_choice", "points_given_to_opponents", "points_fed_to_partner",
     "unseen_points", "dealer_kitty_points", "attacker_points_to_next_threshold", "attacker_points_vs_80",
     "unseen_in_move_suit", "unseen_points_in_move_suit", "unseen_in_lead_suit",
+    "lead_has_triple", "move_has_triple", "triples_broken",
 ]
 TEMP = 4.0  # points; how sharply the target prefers better moves
 SEED = 7

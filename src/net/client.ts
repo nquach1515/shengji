@@ -1,6 +1,7 @@
 import { HostController, NetStatus } from './host';
 import { Action, ClientMsg, HostMsg, PlayerView } from './protocol';
 import { keepAlive, roomUrl } from './relay';
+import { rulesFor } from '../game/engine';
 
 /** What the UI talks to — either the in-browser host, or a remote host through the relay. */
 export interface GameConnection {
@@ -98,7 +99,8 @@ export class RemoteConnection implements GameConnection {
       const msg = JSON.parse(e.data) as HostMsg;
       if (msg.t === 'view') {
         this.failures = 0;
-        this.current = msg.view;
+        // a host still running a version from before 3 decks sends no rules: it's a 2-deck game
+        this.current = { ...msg.view, rules: msg.view.rules ?? rulesFor(2) };
         if (this.state !== 'online') this.setStatus('online', '');
         else this.emit();
       } else if (msg.t === 'reject') {

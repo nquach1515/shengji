@@ -1,5 +1,5 @@
 import { Card } from '../game/cards';
-import { DeclareOption, GameEvent, Phase, RoundResult, Trick, TrumpSuit } from '../game/engine';
+import { DeckRules, DeclareOption, GameEvent, Phase, RoundResult, Trick, TrumpSuit } from '../game/engine';
 
 export type Action =
   | { type: 'sit'; seat: number }
@@ -24,6 +24,8 @@ export interface Settings {
   /** level both teams start at: 2 classic, 7 shorter, 10 quick */
   startLevel: number;
   pace: Pace;
+  /** 2 or 3 decks; takes effect from the next game */
+  decks: number;
 }
 
 export interface SeatView {
@@ -40,6 +42,8 @@ export interface PlayerView {
   you: number | null;
   isHost: boolean;
   seats: (SeatView | null)[];
+  /** kitty size and score thresholds of the game being played */
+  rules: DeckRules;
   phase: Phase;
   round: number;
   levels: [number, number];

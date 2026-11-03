@@ -10,7 +10,7 @@
  */
 import { botPlay, candidates } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
-import { checkPlay, collectTrick, ctxOf, GameState, play } from './engine';
+import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
 import { cardValue, decompose, effSuit, isTrump, trickWinner, validateFollow } from './rules';
 import { knownLocations } from './info';
 
@@ -34,14 +34,14 @@ export function determinize(s: GameState, seat: number): GameState {
   const known = new Set<string>([...s.hands[seat], ...s.played].map((c) => c.id));
   if (seat === s.dealer) for (const c of s.kitty) known.add(c.id);
   const pins = knownLocations(s, seat);
-  const pool = makeDecks(2).filter((c) => !known.has(c.id) && !pins.has(c.id));
+  const pool = makeDecks(decksOf(s)).filter((c) => !known.has(c.id) && !pins.has(c.id));
   const ctx = ctxOf(s);
   // Recipients of hidden cards: the other players (who can't hold suits they've shown they lack), and the kitty.
   const recips = [0, 1, 2, 3]
     .filter((o) => o !== seat)
     .map((o) => {
       // cards we know this player holds (shown when declaring, or taken back from a blocked throw)
-      const got = makeDecks(2).filter((c) => pins.get(c.id) === o);
+      const got = makeDecks(decksOf(s)).filter((c) => pins.get(c.id) === o);
       return { who: o as number | 'kitty', cap: s.hands[o].length - got.length, ok: (suit: string) => !s.voids[o].includes(suit), got };
     });
   if (seat !== s.dealer) recips.push({ who: 'kitty', cap: s.kitty.length, ok: () => true, got: [] });
@@ -117,9 +117,9 @@ export const LEVEL_WEIGHT = 20;
  * A round's value from the attackers' side: their points, plus `levelWeight` per level the attackers gain (or minus
  * per level the defenders gain), plus or minus `levelWeight / 2` for who deals next. Mirrors endRound's scoring.
  */
-export function attackerValue(points: number, levelWeight: number): number {
-  if (points < 80) return points - levelWeight * ((points === 0 ? 3 : points < 40 ? 2 : 1) + 0.5);
-  return points + levelWeight * (Math.floor((points - 80) / 40) + 0.5);
+export function attackerValue(points: number, levelWeight: number, r: DeckRules = rulesFor(2)): number {
+  const { attackersWin, gained } = roundLevels(points, r);
+  return points + (attackersWin ? 1 : -1) * levelWeight * (gained + 0.5);
 }
 
 export function rollout(d: GameState, seat: number, move: string[], levelWeight = 0): number {
@@ -131,7 +131,7 @@ export function rollout(d: GameState, seat: number, move: string[], levelWeight 
     if (d.trick!.winner !== null) collectTrick(d, noName);
   }
   const attacking = seat % 2 !== d.dealer! % 2;
-  const v = attackerValue(d.result!.attackerPoints, levelWeight);
+  const v = attackerValue(d.result!.attackerPoints, levelWeight, rulesOf(d));
   return attacking ? v : -v;
 }
 
@@ -311,7 +311,7 @@ export function holdChance(s: GameState, seat: number, card: Card, leadSuit: str
   const ctx = ctxOf(s);
   const hand = s.hands[seat];
   const seen = new Set([...hand, ...s.played, ...(seat === s.dealer ? s.kitty : [])].map((c) => c.id));
-  const unseen = makeDecks(2).filter((c) => !seen.has(c.id));
+  const unseen = makeDecks(decksOf(s)).filter((c) => !seen.has(c.id));
   const n = unseen.length;
   const suit = effSuit(card, ctx);
   const inSuit = unseen.filter((c) => effSuit(c, ctx) === leadSuit).length;

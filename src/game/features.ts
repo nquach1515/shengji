@@ -4,7 +4,7 @@
  * (if dealer), hand sizes, and the suits other players have shown they're out of.
  */
 import { Card, cardKey, makeDecks, totalPoints } from './cards';
-import { ctxOf, GameState, NUM_PLAYERS, teamOf } from './engine';
+import { ctxOf, decksOf, GameState, NUM_PLAYERS, rulesOf, teamOf } from './engine';
 import { cardValue, decompose, effSuit, EffSuit, isTrump, TrumpCtx, trickWinner } from './rules';
 
 export interface DecisionContext {
@@ -41,7 +41,7 @@ export function decisionContext(s: GameState, seat: number, heuristicMove: strin
     seat,
     ctx,
     hand,
-    unseen: makeDecks(2).filter((c) => !seen.has(c.id)),
+    unseen: makeDecks(decksOf(s)).filter((c) => !seen.has(c.id)),
     lead,
     leadSuit: lead ? effSuit(lead[0], ctx) : null,
     laterSeats,
@@ -97,6 +97,9 @@ export const FEATURE_NAMES = [
   'unseen_in_move_suit',
   'unseen_points_in_move_suit',
   'unseen_in_lead_suit',
+  'lead_has_triple',
+  'move_has_triple',
+  'triples_broken',
 ] as const;
 
 const NF = FEATURE_NAMES.length;
@@ -110,20 +113,23 @@ export function moveFeatures(dc: DecisionContext, move: Card[]): number[] {
   const partner = (seat + 2) % 4;
   const canRuff = (o: number, suit: EffSuit) => suit !== 'T' && s.voids[o].includes(suit) && !s.voids[o].includes('T');
   const unseenIn = (suit: EffSuit) => unseen.filter((c) => effSuit(c, ctx) === suit);
+  // counts are scaled to a 2-deck game (1 with 2 decks, 1.5 with 3), so a feature means the same in both
+  const r = rulesOf(s);
+  const k = r.decks / 2;
 
   f[0] = lead ? 0 : 1;
   f[1] = trick.plays.length / 3;
   f[2] = dc.partnerWinning ? 1 : 0;
   f[3] = trick.points / 50;
   f[4] = dc.attacking ? 1 : 0;
-  f[5] = s.attackerPoints / 200;
-  f[6] = hand.length / 25;
+  f[5] = s.attackerPoints / r.points;
+  f[6] = hand.length / 25 / k;
   f[7] = lead ? lead.length / 8 : 0;
   f[8] = leadSuit === 'T' ? 1 : 0;
   f[9] = lead && decompose(lead, ctx).some((c) => c.kind !== 'single') ? 1 : 0;
-  f[10] = leadSuit ? hand.filter((c) => effSuit(c, ctx) === leadSuit).length / 12 : 0;
-  f[11] = hand.filter((c) => isTrump(c, ctx)).length / 20;
-  f[12] = unseenIn('T').length / 36;
+  f[10] = leadSuit ? hand.filter((c) => effSuit(c, ctx) === leadSuit).length / 12 / k : 0;
+  f[11] = hand.filter((c) => isTrump(c, ctx)).length / 20 / k;
+  f[12] = unseenIn('T').length / 36 / k;
   f[13] = leadSuit && laterSeats.some((o) => opps.includes(o) && canRuff(o, leadSuit)) ? 1 : 0;
   f[14] = laterSeats.length / 3;
   f[15] = seat === s.dealer ? 1 : 0;
@@ -172,10 +178,10 @@ export function moveFeatures(dc: DecisionContext, move: Card[]): number[] {
   f[29] = comps.some((c) => c.kind === 'tractor') ? 1 : 0;
   f[30] = comps.length > 1 ? 1 : 0;
   if (moveSuit) {
-    f[31] = hand.filter((c) => effSuit(c, ctx) === moveSuit).length / 12;
+    f[31] = hand.filter((c) => effSuit(c, ctx) === moveSuit).length / 12 / k;
     f[32] = opps.some((o) => canRuff(o, moveSuit)) ? 1 : 0;
     f[33] = canRuff(partner, moveSuit) ? 1 : 0;
-    f[34] = unseenIn(moveSuit).filter((u) => cardValue(u, ctx) > Math.max(...values)).length / 10;
+    f[34] = unseenIn(moveSuit).filter((u) => cardValue(u, ctx) > Math.max(...values)).length / 10 / k;
   }
   f[35] = [...move.map((c) => c.id)].sort().join(',') === dc.heuristicKey ? 1 : 0;
   // Points this move hands over: to opponents if they're currently winning and we don't take it, to partner if they are.
@@ -184,17 +190,24 @@ export function moveFeatures(dc: DecisionContext, move: Card[]): number[] {
     else f[36] = pts / 40;
   }
   // Card counting and score situation.
-  f[38] = totalPoints(unseen) / 200;
+  f[38] = totalPoints(unseen) / r.points;
   // Only the dealer has seen the kitty — not even their partner.
-  f[39] = seat === s.dealer ? totalPoints(s.kitty) / 40 : 0;
-  const nextThreshold = [40, 80, 120, 160, 200].find((t) => t > s.attackerPoints) ?? 240;
-  f[40] = (nextThreshold - s.attackerPoints) / 40;
-  f[41] = (s.attackerPoints - 80) / 80;
+  f[39] = seat === s.dealer ? totalPoints(s.kitty) / 40 / k : 0;
+  // score thresholds sit every `step` points (`win` is a multiple of it): 40, 80, 120, ...
+  const nextThreshold = (Math.floor(s.attackerPoints / r.step) + 1) * r.step;
+  f[40] = (nextThreshold - s.attackerPoints) / r.step;
+  f[41] = (s.attackerPoints - r.win) / (2 * r.step);
   if (moveSuit) {
-    f[42] = unseenIn(moveSuit).length / 26;
-    f[43] = totalPoints(unseenIn(moveSuit)) / 50;
+    f[42] = unseenIn(moveSuit).length / 26 / k;
+    f[43] = totalPoints(unseenIn(moveSuit)) / 50 / k;
   }
-  f[44] = leadSuit ? unseenIn(leadSuit).length / 26 : 0;
+  f[44] = leadSuit ? unseenIn(leadSuit).length / 26 / k : 0;
+  // Triples (3 decks only).
+  f[45] = lead && decompose(lead, ctx).some((c) => c.width === 3) ? 1 : 0;
+  f[46] = comps.some((c) => c.width === 3) ? 1 : 0;
+  let splitTriples = 0;
+  for (const [key, cnt] of inMove) if ((inHand.get(key) ?? 0) === 3 && cnt < 3) splitTriples++;
+  f[47] = splitTriples / 2;
   return f;
 }
 

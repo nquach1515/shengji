@@ -36,10 +36,12 @@ export function cardValue(card: Card, ctx: TrumpCtx): number {
   return compIdx(card.rank, ctx.rank);
 }
 
-export type CompKind = 'single' | 'pair' | 'tractor';
+export type CompKind = 'single' | 'pair' | 'triple' | 'tractor';
 export interface Component {
   kind: CompKind;
-  /** number of pairs for pair/tractor; 1 for single */
+  /** cards per unit: 1 single, 2 pair, 3 triple (a tractor is a chain of pairs or of triples) */
+  width: number;
+  /** number of units: 1, or the tractor's length */
   len: number;
   cards: Card[];
   top: number;
@@ -57,25 +59,26 @@ function groupIdentical(cards: Card[]): Map<string, Card[]> {
   return m;
 }
 
-/** Splits cards into (pairs, singles). */
-function pairsAndSingles(cards: Card[]): { pairs: Card[][]; singles: Card[] } {
-  const pairs: Card[][] = [];
-  const singles: Card[] = [];
+/** Disjoint sets of `width` identical cards (a triple also yields one pair when width is 2). */
+export function tuplesOf(cards: Card[], width: number): Card[][] {
+  const out: Card[][] = [];
   for (const g of groupIdentical(cards).values()) {
-    let i = 0;
-    for (; i + 1 < g.length; i += 2) pairs.push([g[i], g[i + 1]]);
-    if (i < g.length) singles.push(g[i]);
+    for (let i = 0; i + width <= g.length; i += width) out.push(g.slice(i, i + width));
   }
-  return { pairs, singles };
+  return out;
+}
+
+export function countTuples(cards: Card[], width: number): number {
+  return tuplesOf(cards, width).length;
 }
 
 export function countPairs(cards: Card[]): number {
-  return pairsAndSingles(cards).pairs.length;
+  return countTuples(cards, 2);
 }
 
-/** Maximal runs of consecutive pair values: [start, end] inclusive. */
-function pairRuns(cards: Card[], ctx: TrumpCtx): [number, number][] {
-  const vals = [...new Set(pairsAndSingles(cards).pairs.map((p) => cardValue(p[0], ctx)))].sort((a, b) => a - b);
+/** Maximal runs of consecutive values holding a `width`-tuple: [start, end] inclusive. */
+function tupleRuns(cards: Card[], ctx: TrumpCtx, width: number): [number, number][] {
+  const vals = [...new Set(tuplesOf(cards, width).map((p) => cardValue(p[0], ctx)))].sort((a, b) => a - b);
   const runs: [number, number][] = [];
   for (const v of vals) {
     const last = runs[runs.length - 1];
@@ -85,42 +88,54 @@ function pairRuns(cards: Card[], ctx: TrumpCtx): [number, number][] {
   return runs;
 }
 
-export function longestTractor(cards: Card[], ctx: TrumpCtx): number {
-  return Math.max(0, ...pairRuns(cards, ctx).map(([s, e]) => e - s + 1));
+/** Length of the longest tractor of pairs (or, with width 3, of triples). */
+export function longestTractor(cards: Card[], ctx: TrumpCtx, width = 2): number {
+  return Math.max(0, ...tupleRuns(cards, ctx, width).map(([s, e]) => e - s + 1));
 }
 
+/** Widest units first (triples, then pairs, then singles), then bigger, then higher. */
 function compSort(a: Component, b: Component): number {
-  return b.size - a.size || b.top - a.top;
+  return b.width - a.width || b.size - a.size || b.top - a.top;
 }
 
-/** Decomposes same-suit cards into tractors, pairs and singles (largest first). */
+/** Decomposes same-suit cards into tractors, triples, pairs and singles (largest first). */
 export function decompose(cards: Card[], ctx: TrumpCtx): Component[] {
-  const { pairs, singles } = pairsAndSingles(cards);
-  const byVal = new Map<number, Card[][]>();
-  for (const p of pairs) {
-    const v = cardValue(p[0], ctx);
-    byVal.set(v, [...(byVal.get(v) ?? []), p]);
-  }
+  const units = new Map<number, Card[][]>([
+    [3, []],
+    [2, []],
+  ]);
   const comps: Component[] = [];
-  for (;;) {
-    const vals = [...byVal.keys()].filter((v) => byVal.get(v)!.length > 0).sort((a, b) => a - b);
-    if (vals.length === 0) break;
-    let v = vals[0];
-    const chain: Card[][] = [];
-    while (byVal.get(v)?.length) {
-      chain.push(byVal.get(v)!.shift()!);
-      v++;
-    }
-    const top = v - 1;
-    comps.push({
-      kind: chain.length >= 2 ? 'tractor' : 'pair',
-      len: chain.length,
-      cards: chain.flat(),
-      top,
-      size: chain.length * 2,
-    });
+  for (const g of groupIdentical(cards).values()) {
+    let i = 0;
+    for (; i + 3 <= g.length; i += 3) units.get(3)!.push(g.slice(i, i + 3));
+    if (g.length - i === 2) units.get(2)!.push(g.slice(i));
+    else if (g.length - i === 1) comps.push({ kind: 'single', width: 1, len: 1, cards: [g[i]], top: cardValue(g[i], ctx), size: 1 });
   }
-  for (const s of singles) comps.push({ kind: 'single', len: 1, cards: [s], top: cardValue(s, ctx), size: 1 });
+  for (const [width, tuples] of units) {
+    const byVal = new Map<number, Card[][]>();
+    for (const t of tuples) {
+      const v = cardValue(t[0], ctx);
+      byVal.set(v, [...(byVal.get(v) ?? []), t]);
+    }
+    for (;;) {
+      const vals = [...byVal.keys()].filter((v) => byVal.get(v)!.length > 0).sort((a, b) => a - b);
+      if (vals.length === 0) break;
+      let v = vals[0];
+      const chain: Card[][] = [];
+      while (byVal.get(v)?.length) {
+        chain.push(byVal.get(v)!.shift()!);
+        v++;
+      }
+      comps.push({
+        kind: chain.length >= 2 ? 'tractor' : width === 3 ? 'triple' : 'pair',
+        width,
+        len: chain.length,
+        cards: chain.flat(),
+        top: v - 1,
+        size: chain.length * width,
+      });
+    }
+  }
   return comps.sort(compSort);
 }
 
@@ -132,18 +147,11 @@ function suitCards(cards: Card[], suit: EffSuit, ctx: TrumpCtx): Card[] {
 function beatable(comp: Component, hand: Card[], suit: EffSuit, ctx: TrumpCtx): boolean {
   const cards = suitCards(hand, suit, ctx);
   // House rule: a player who is out of the suit can block a throw with trumps that match a component's shape
-  // (any trump for a single, a trump pair for a pair, a trump tractor for a tractor).
+  // (any trump for a single, a trump pair for a pair, a trump triple for a triple, a trump tractor for a tractor).
   if (cards.length === 0 && suit !== 'T') {
-    const trumps = suitCards(hand, 'T', ctx);
-    if (comp.kind === 'single') return trumps.length > 0;
-    if (comp.kind === 'pair') return pairsAndSingles(trumps).pairs.length > 0;
-    return longestTractor(trumps, ctx) >= comp.len;
+    return longestTractor(suitCards(hand, 'T', ctx), ctx, comp.width) >= comp.len;
   }
-  if (comp.kind === 'single') return cards.some((c) => cardValue(c, ctx) > comp.top);
-  if (comp.kind === 'pair') {
-    return pairsAndSingles(cards).pairs.some((p) => cardValue(p[0], ctx) > comp.top);
-  }
-  return pairRuns(cards, ctx).some(([s, e]) => e - s + 1 >= comp.len && e > comp.top);
+  return tupleRuns(cards, ctx, comp.width).some(([s, e]) => e - s + 1 >= comp.len && e > comp.top);
 }
 
 export function validateLead(cards: Card[], ctx: TrumpCtx): string | null {
@@ -166,6 +174,35 @@ export function checkThrow(cards: Card[], others: Card[][], ctx: TrumpCtx): Comp
   return failing.sort((a, b) => a.size - b.size || a.top - b.top)[0];
 }
 
+/** What a follow that has enough cards of the led suit must contain. */
+export interface FollowDuties {
+  /** a tractor of this width (2 pairs, 3 triples) and at least this length; 0 = none */
+  tractorWidth: number;
+  tractorLen: number;
+  triples: number;
+  /** pairs, counting each triple as one */
+  pairs: number;
+}
+
+export function followDuties(lead: Card[], handSuit: Card[], ctx: TrumpCtx): FollowDuties {
+  const comps = decompose(lead, ctx);
+  const units = (width: number) => comps.reduce((t, c) => t + (c.width === width ? c.len : 0), 0);
+  const triples = Math.min(units(3), countTuples(handSuit, 3));
+  // A triple you can't match still calls for a pair, like any pair in the lead.
+  const pairs = Math.min(units(3) + units(2), countPairs(handSuit));
+  const duty = { tractorWidth: 0, tractorLen: 0, triples, pairs };
+  const tractor = comps.find((c) => c.kind === 'tractor');
+  if (!tractor) return duty;
+  // A tractor must be answered with a tractor: of triples if you have one (for a triple tractor), else of pairs —
+  // but someone giving triples for a triple tractor isn't also asked for a pair tractor (both may not fit).
+  const widths = tractor.width === 2 ? [2] : triples > 0 ? [3] : [2];
+  for (const width of widths) {
+    const handLong = longestTractor(handSuit, ctx, width);
+    if (handLong >= 2) return { ...duty, tractorWidth: width, tractorLen: Math.min(tractor.len, handLong) };
+  }
+  return duty;
+}
+
 export function validateFollow(play: Card[], hand: Card[], lead: Card[], ctx: TrumpCtx): string | null {
   const n = lead.length;
   if (play.length !== n) return `Play exactly ${n} card${n > 1 ? 's' : ''}`;
@@ -178,18 +215,10 @@ export function validateFollow(play: Card[], hand: Card[], lead: Card[], ctx: Tr
   }
   if (playSuit.length !== n) return `You must follow with ${suitName}`;
 
-  const comps = decompose(lead, ctx);
-  const leadPairs = comps.reduce((s, c) => s + (c.kind === 'single' ? 0 : c.len), 0);
-  const leadTractor = Math.max(0, ...comps.filter((c) => c.kind === 'tractor').map((c) => c.len));
-  if (leadTractor >= 2) {
-    const handLong = longestTractor(handSuit, ctx);
-    if (handLong >= 2) {
-      const req = Math.min(leadTractor, handLong);
-      if (longestTractor(playSuit, ctx) < req) return 'You must play your tractor';
-    }
-  }
-  const reqPairs = Math.min(leadPairs, countPairs(handSuit));
-  if (countPairs(playSuit) < reqPairs) return reqPairs === 1 ? 'You must play a pair' : `You must play ${reqPairs} pairs`;
+  const duty = followDuties(lead, handSuit, ctx);
+  if (duty.tractorLen && longestTractor(playSuit, ctx, duty.tractorWidth) < duty.tractorLen) return 'You must play your tractor';
+  if (countTuples(playSuit, 3) < duty.triples) return duty.triples === 1 ? 'You must play a triple' : `You must play ${duty.triples} triples`;
+  if (countPairs(playSuit) < duty.pairs) return duty.pairs === 1 ? 'You must play a pair' : `You must play ${duty.pairs} pairs`;
   return null;
 }
 
@@ -212,23 +241,14 @@ export function matchShape(cards: Card[], leadComps: Component[], ctx: TrumpCtx)
       top = cardValue(best, ctx);
       take([best]);
     } else {
-      const pairs = pairsAndSingles(remaining).pairs;
-      if (comp.kind === 'pair') {
-        const best = pairs.sort((a, b) => cardValue(b[0], ctx) - cardValue(a[0], ctx))[0];
-        if (!best) return null;
-        top = cardValue(best[0], ctx);
-        take(best);
-      } else {
-        const runs = pairRuns(remaining, ctx).filter(([s, e]) => e - s + 1 >= comp.len);
-        if (runs.length === 0) return null;
-        const end = Math.max(...runs.map((r) => r[1]));
-        top = end;
-        const picked: Card[] = [];
-        for (let v = end - comp.len + 1; v <= end; v++) {
-          picked.push(...pairs.find((p) => cardValue(p[0], ctx) === v)!);
-        }
-        take(picked);
-      }
+      const tuples = tuplesOf(remaining, comp.width);
+      const runs = tupleRuns(remaining, ctx, comp.width).filter(([s, e]) => e - s + 1 >= comp.len);
+      if (runs.length === 0) return null;
+      const end = Math.max(...runs.map((r) => r[1]));
+      top = end;
+      const picked: Card[] = [];
+      for (let v = end - comp.len + 1; v <= end; v++) picked.push(...tuples.find((p) => cardValue(p[0], ctx) === v)!);
+      take(picked);
     }
     if (firstTop === null) firstTop = top;
   }

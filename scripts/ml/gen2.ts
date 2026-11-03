@@ -6,7 +6,7 @@
 //   npx tsx scripts/ml/gen2.ts <decisions> <deals-per-option> <out.jsonl>
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
-import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
+import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { decisionContext, moveFeatures } from '../../src/game/features';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
@@ -17,6 +17,8 @@ const samples = Number(process.argv[3] ?? 32);
 const out = process.argv[4] ?? 'data.jsonl';
 const nm = () => '';
 const LEVEL_WEIGHT = Number(process.env.LEVEL_WEIGHT ?? 20);
+// DECKS=3 generates 3-deck training data
+const DECKS = Number(process.env.DECKS ?? 2);
 
 function playout(d: GameState, seat: number, move: string[]): number {
   if (play(d, seat, move, nm)) return 0;
@@ -26,7 +28,7 @@ function playout(d: GameState, seat: number, move: string[]): number {
     if (d.trick!.winner !== null) collectTrick(d, nm);
   }
   const attacking = seat % 2 !== d.dealer! % 2;
-  const v = attackerValue(d.result!.attackerPoints, LEVEL_WEIGHT);
+  const v = attackerValue(d.result!.attackerPoints, LEVEL_WEIGHT, rulesOf(d));
   return attacking ? v : -v;
 }
 
@@ -34,7 +36,7 @@ writeFileSync(out, '');
 let made = 0;
 const t0 = Date.now();
 while (made < target) {
-  const s = newGame();
+  const s = newGame(2, DECKS);
   startRound(s);
   while (s.phase === 'dealing') {
     const seat = dealOne(s, 0);

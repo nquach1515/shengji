@@ -1,17 +1,18 @@
 import { Card, cardKey, makeDecks, points, totalPoints } from './cards';
-import { ctxOf, declareOptions, DeclareOption, GameState, KITTY_SIZE, NUM_PLAYERS, teamOf } from './engine';
+import { ctxOf, declareOptions, DeclareOption, decksOf, GameState, NUM_PLAYERS, rulesOf, teamOf } from './engine';
 import {
   cardValue,
   Component,
-  countPairs,
+  countTuples,
   decompose,
   effSuit,
+  followDuties,
   EffSuit,
   isTrump,
-  longestTractor,
   matchShape,
   TrumpCtx,
   trickWinner,
+  tuplesOf,
   validateFollow,
 } from './rules';
 
@@ -46,20 +47,15 @@ function pairBreakCost(play: Card[], hand: Card[], ctx: TrumpCtx): number {
   }
   let cost = 0;
   for (const [key, c] of inPlay) {
-    if ((inHand.get(key) ?? 0) >= 2 && playedCount.get(key) === 1) cost += 14 + cardValue(c, ctx) + (isTrump(c, ctx) ? 10 : 0);
+    // splitting a pair, or a triple (by playing one or two of it)
+    if ((inHand.get(key) ?? 0) >= 2 && playedCount.get(key)! < inHand.get(key)!) cost += 14 + cardValue(c, ctx) + (isTrump(c, ctx) ? 10 : 0);
   }
   return cost;
 }
 
-function pairsOf(cards: Card[]): Card[][] {
-  const m = new Map<string, Card[]>();
-  for (const c of cards) m.set(cardKey(c), [...(m.get(cardKey(c)) ?? []), c]);
-  return [...m.values()].filter((g) => g.length >= 2).map((g) => g.slice(0, 2));
-}
-
-/** All tractors of exactly `len` pairs within `cards`, lowest first. */
-function tractorsOf(cards: Card[], len: number, ctx: TrumpCtx): Card[][] {
-  const pairs = pairsOf(cards).sort((a, b) => cardValue(a[0], ctx) - cardValue(b[0], ctx));
+/** All tractors of exactly `len` pairs (or triples, with width 3) within `cards`, lowest first. */
+function tractorsOf(cards: Card[], len: number, ctx: TrumpCtx, width = 2): Card[][] {
+  const pairs = tuplesOf(cards, width).sort((a, b) => cardValue(a[0], ctx) - cardValue(b[0], ctx));
   const out: Card[][] = [];
   for (let i = 0; i < pairs.length; i++) {
     const chain = [pairs[i]];
@@ -92,23 +88,45 @@ export function legalFollow(hand: Card[], lead: Card[], ctx: TrumpCtx, preferPoi
   const suit = effSuit(lead[0], ctx);
   const suitCards = hand.filter((c) => effSuit(c, ctx) === suit);
   if (suitCards.length <= n) return fill(suitCards, hand, n, ctx, preferPoints);
-  const comps = decompose(lead, ctx);
-  const leadPairs = comps.reduce((s, c) => s + (c.kind === 'single' ? 0 : c.len), 0);
-  const leadTractor = Math.max(0, ...comps.filter((c) => c.kind === 'tractor').map((c) => c.len));
-  let chosen: Card[] = [];
-  if (leadTractor >= 2) {
-    const req = Math.min(leadTractor, longestTractor(suitCards, ctx));
-    if (req >= 2) chosen = tractorsOf(suitCards, req, ctx)[0] ?? [];
-  }
-  const needPairs = Math.min(leadPairs, countPairs(suitCards)) - chosen.length / 2;
-  if (needPairs > 0) {
-    const used = new Set(chosen.map((c) => c.id));
-    const pairs = pairsOf(suitCards.filter((c) => !used.has(c.id))).sort((a, b) =>
-      preferPoints ? points(b[0]) - points(a[0]) : discardCost(a[0], ctx) - discardCost(b[0], ctx),
-    );
-    chosen = [...chosen, ...pairs.slice(0, needPairs).flat()];
-  }
-  return fill(chosen, suitCards, n, ctx, preferPoints);
+  const duty = followDuties(lead, suitCards, ctx);
+  const cheap = (a: Card[], b: Card[]) =>
+    preferPoints ? points(b[0]) - points(a[0]) : discardCost(a[0], ctx) - discardCost(b[0], ctx);
+  // Builds up the required structure in the given order. Picks may overlap what's already chosen (a triple can
+  // complete a pair the tractor took from it), so the order matters only in rare throws; try another if one fails.
+  const build = (order: ('tractor' | 'triples' | 'pairs')[]): Card[] | null => {
+    let chosen: Card[] = [];
+    const add = (cards: Card[]) => {
+      const ids = new Set(chosen.map((c) => c.id));
+      chosen = [...chosen, ...cards.filter((c) => !ids.has(c.id))];
+    };
+    const newCards = (t: Card[]) => t.filter((c) => !chosen.some((x) => x.id === c.id)).length;
+    for (const step of order) {
+      if (step === 'tractor') {
+        if (duty.tractorLen) add(tractorsOf(suitCards, duty.tractorLen, ctx, duty.tractorWidth)[0] ?? []);
+        continue;
+      }
+      const width = step === 'triples' ? 3 : 2;
+      const need = (width === 3 ? duty.triples : duty.pairs) - countTuples(chosen, width);
+      if (need <= 0) continue;
+      const count = new Map<string, number>();
+      for (const c of suitCards) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);
+      // fewest new cards first (completing what's chosen), then real pairs before split triples, then cheapest
+      const split = (t: Card[]) => (count.get(cardKey(t[0]))! > width ? 1 : 0);
+      const options = tuplesOf(suitCards, width)
+        .filter((t) => newCards(t) > 0)
+        .sort((a, b) => newCards(a) - newCards(b) || split(a) - split(b) || cheap(a, b));
+      for (const t of options.slice(0, need)) add(t);
+    }
+    if (chosen.length > n) return null;
+    const play = fill(chosen, suitCards, n, ctx, preferPoints);
+    return validateFollow(play, hand, lead, ctx) === null ? play : null;
+  };
+  return (
+    build(['tractor', 'triples', 'pairs']) ??
+    build(['triples', 'tractor', 'pairs']) ??
+    build(['triples', 'pairs', 'tractor']) ??
+    fill([], suitCards, n, ctx, preferPoints)
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -130,7 +148,7 @@ function knowledge(s: GameState, seat: number): Know {
   return {
     ctx: ctxOf(s),
     seat,
-    unseen: makeDecks(2).filter((c) => !seen.has(c.id)),
+    unseen: makeDecks(decksOf(s)).filter((c) => !seen.has(c.id)),
     voids: s.voids.map((v) => new Set(v)),
   };
 }
@@ -145,13 +163,13 @@ function bossSingle(c: Card, k: Know): boolean {
   return !unseenIn(k, effSuit(c, k.ctx)).some((u) => cardValue(u, k.ctx) > v);
 }
 
-/** No unseen pair in the suit is higher than `top` (so no pair or tractor can beat it). */
-function bossPairAt(top: number, suit: EffSuit, k: Know): boolean {
-  return !pairsOf(unseenIn(k, suit)).some((p) => cardValue(p[0], k.ctx) > top);
+/** No unseen pair (or triple, with width 3) in the suit is higher than `top`, so nothing of that shape can beat it. */
+function bossTupleAt(top: number, suit: EffSuit, k: Know, width: number): boolean {
+  return !tuplesOf(unseenIn(k, suit), width).some((p) => cardValue(p[0], k.ctx) > top);
 }
 
 function safeComp(comp: Component, suit: EffSuit, k: Know): boolean {
-  return comp.kind === 'single' ? bossSingle(comp.cards[0], k) : bossPairAt(comp.top, suit, k);
+  return comp.kind === 'single' ? bossSingle(comp.cards[0], k) : bossTupleAt(comp.top, suit, k, comp.width);
 }
 
 const partnerOf = (seat: number) => (seat + 2) % NUM_PLAYERS;
@@ -270,7 +288,8 @@ export function candidates(hand: Card[], lead: Card[], ctx: TrumpCtx): Card[][] 
   const pool = suitCards.length >= n ? suitCards : suitCards.length === 0 ? hand.filter((c) => isTrump(c, ctx)) : null;
   if (!pool || pool.length < n) return out;
   if (comps.length === 1 && comps[0].kind !== 'single') {
-    const shapes = comps[0].kind === 'pair' ? pairsOf(pool) : tractorsOf(pool, comps[0].len, ctx);
+    const c = comps[0];
+    const shapes = c.kind === 'tractor' ? tractorsOf(pool, c.len, ctx, c.width) : tuplesOf(pool, c.width);
     out.push(...shapes);
   } else if (pool !== suitCards) {
     // Ruffing a throw: build the matching structure out of our lowest trumps.
@@ -280,9 +299,9 @@ export function candidates(hand: Card[], lead: Card[], ctx: TrumpCtx): Card[][] 
       const pick =
         comp.kind === 'single'
           ? rest.slice(0, 1)
-          : comp.kind === 'pair'
-            ? pairsOf(rest).sort((a, b) => cardValue(a[0], ctx) - cardValue(b[0], ctx))[0]
-            : tractorsOf(rest, comp.len, ctx)[0];
+          : comp.kind === 'tractor'
+            ? tractorsOf(rest, comp.len, ctx, comp.width)[0]
+            : tuplesOf(rest, comp.width).sort((a, b) => cardValue(a[0], ctx) - cardValue(b[0], ctx))[0];
       if (!pick?.length) return out;
       shape.push(...pick);
       const ids = new Set(pick.map((c) => c.id));
@@ -391,7 +410,7 @@ export function botBury(s: GameState, seat: number): string[] {
   return hand
     .slice()
     .sort((a, b) => cost(a) - cost(b))
-    .slice(0, KITTY_SIZE)
+    .slice(0, rulesOf(s).kitty)
     .map((c) => c.id);
 }
 

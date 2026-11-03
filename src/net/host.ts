@@ -9,7 +9,9 @@ import {
   declare,
   declareOptions,
   finalizeDeclaration,
+  decksOf,
   GameState,
+  rulesOf,
   newGame,
   nextRound,
   NUM_PLAYERS,
@@ -33,7 +35,8 @@ export interface SeatInfo {
 
 const BOT_NAMES = ['Mei', 'Jun', 'Lan', 'Bao', 'Ying', 'Kai', 'Lin', 'Tao', 'Hua', 'Ming', 'Xia', 'Wei', 'Fang', 'Ling', 'Hao', 'Jing', 'Rui', 'Qing', 'Yun', 'Bo'];
 const PACE: Record<Pace, { deal: number; bot: number; trick: number; think: number }> = {
-  // deal = ms per card (100 cards): time enough to watch your hand form and decide whether to declare
+  // deal = ms per card with 2 decks (100 cards; 3 decks deal faster, in the same total time): time enough to watch
+  // your hand form and decide whether to declare
   relaxed: { deal: 240, bot: 1.5, trick: 2300, think: 900 },
   normal: { deal: 180, bot: 1, trick: 1750, think: 700 },
   fast: { deal: 110, bot: 0.5, trick: 1450, think: 400 },
@@ -83,7 +86,7 @@ export function randomCode(): string {
 export class HostController {
   state: GameState;
   seats: (SeatInfo | null)[];
-  settings: Settings = { startLevel: 2, pace: 'normal' };
+  settings: Settings = { startLevel: 2, pace: 'normal', decks: 2 };
   status: NetStatus = 'offline';
   statusDetail = '';
   private socket: WebSocket | null = null;
@@ -117,7 +120,7 @@ export class HostController {
       this.state = saved.state;
       this.seats = saved.seats.map((s) => (s ? { ...s, online: s.isBot || s.clientId === hostClientId } : null));
     } else {
-      this.state = newGame(this.settings.startLevel);
+      this.state = newGame(this.settings.startLevel, this.settings.decks);
       this.seats = [{ clientId: hostClientId, name: hostName, isBot: false, online: true }, null, null, null];
     }
     if (online) this.openRelay(0);
@@ -340,12 +343,12 @@ export class HostController {
         return null;
       case 'newGame':
         if (!isHost) return 'Waiting for the host';
-        this.state = resetToLobby(s, this.settings.startLevel);
+        this.state = resetToLobby(s, this.settings.startLevel, this.settings.decks);
         return null;
       case 'settings':
         if (!isHost) return 'Only the host can change settings';
         this.settings = { ...this.settings, ...a.settings };
-        if (s.phase === 'lobby') this.state = resetToLobby(s, this.settings.startLevel);
+        if (s.phase === 'lobby') this.state = resetToLobby(s, this.settings.startLevel, this.settings.decks);
         return null;
       case 'emote':
         if (seat === null) return null;
@@ -401,7 +404,7 @@ export class HostController {
     const s = this.state;
     switch (s.phase) {
       case 'dealing':
-        this.schedule(PACE[this.settings.pace].deal, () => {
+        this.schedule((PACE[this.settings.pace].deal * 100) / (54 * decksOf(s) - rulesOf(s).kitty), () => {
           const seat = dealOne(s, Date.now());
           if (this.isBot(seat)) {
             const opt = botDeclare(redactFor(s, seat), seat);
@@ -532,6 +535,7 @@ export class HostController {
             }
           : null,
       ),
+      rules: rulesOf(s),
       phase: s.phase,
       round: s.round,
       levels: s.levels,
@@ -540,7 +544,7 @@ export class HostController {
       trumpSuit: s.trumpSuit,
       hand: you === null ? [] : sortHand(s.hands[you], ctx),
       deckRemaining: s.deck.length,
-      kittyCount: s.phase === 'burying' ? 0 : 8,
+      kittyCount: s.phase === 'burying' ? 0 : rulesOf(s).kitty,
       kitty: kittyVisible ? showKitty : null,
       declaration: s.declaration,
       declareOptions: you === null ? [] : declareOptions(s, you),

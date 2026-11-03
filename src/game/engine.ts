@@ -2,17 +2,50 @@ import { BIG_JOKER, Card, makeDecks, points, randomInt, shuffle, SMALL_JOKER, Su
 import { checkThrow, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
 
 export const NUM_PLAYERS = 4;
-export const KITTY_SIZE = 8;
 export const DECLARE_WINDOW_MS = 8000;
 
 export type Phase = 'lobby' | 'dealing' | 'declaring' | 'burying' | 'playing' | 'roundEnd' | 'gameOver';
 export type TrumpSuit = Suit | 'NT';
 
+/** What changes with the number of decks: kitty size and the score needed to take the deal. */
+export interface DeckRules {
+  decks: number;
+  kitty: number;
+  /** points in the whole deck */
+  points: number;
+  /** attackers need this many to win the round */
+  win: number;
+  /** every this many points past (or short of) `win` is another level */
+  step: number;
+}
+
+export function rulesFor(decks: number): DeckRules {
+  // 3 decks: 162 cards, 38 each and a 10-card kitty
+  return decks === 3 ? { decks: 3, kitty: 10, points: 300, win: 120, step: 40 } : { decks: 2, kitty: 8, points: 200, win: 80, step: 40 };
+}
+
+/**
+ * Levels a round is worth for the attackers' `points`: attackers reaching `win` gain one per `step` past it;
+ * otherwise defenders gain one, plus one for each `step` further short, up to three (two decks: 40-75 one,
+ * 5-35 two, 0 three).
+ */
+export function roundLevels(points: number, r: DeckRules): { attackersWin: boolean; gained: number } {
+  if (points >= r.win) return { attackersWin: true, gained: Math.floor((points - r.win) / r.step) };
+  return { attackersWin: false, gained: points === 0 ? 3 : Math.min(3, 1 + Math.floor((r.win - 1 - points) / r.step)) };
+}
+
+/** States saved before the deck setting existed are 2-deck games. */
+export const decksOf = (s: { decks?: number }) => s.decks ?? 2;
+export const rulesOf = (s: { decks?: number }) => rulesFor(decksOf(s));
+
 export interface Declaration {
   seat: number;
   cards: Card[];
   suit: TrumpSuit;
-  /** 1 single rank card, 2 pair of rank cards, 3 small-joker pair, 4 big-joker pair */
+  /**
+   * 1 single rank card, 2 pair of rank cards, 3 small-joker pair, 4 big-joker pair;
+   * with 3 decks also 5 triple of rank cards, 6 small-joker triple, 7 big-joker triple
+   */
   strength: number;
 }
 
@@ -54,6 +87,8 @@ export interface GameEvent {
 }
 
 export interface GameState {
+  /** 2 or 3 decks (missing in states saved before 3 decks existed: 2) */
+  decks?: number;
   phase: Phase;
   round: number;
   levels: [number, number];
@@ -93,8 +128,9 @@ export function ctxOf(s: GameState): TrumpCtx {
   return { suit: s.trumpSuit, rank: s.trumpRank };
 }
 
-export function newGame(startLevel = 2): GameState {
+export function newGame(startLevel = 2, decks = 2): GameState {
   return {
+    decks,
     phase: 'lobby',
     round: 0,
     levels: [startLevel, startLevel],
@@ -128,9 +164,9 @@ function pushEvent(s: GameState, kind: GameEvent['kind'], text: string, seat?: n
 }
 
 export function startRound(s: GameState): void {
-  const deck = shuffle(makeDecks(2));
+  const deck = shuffle(makeDecks(decksOf(s)));
   s.round += 1;
-  s.kitty = deck.splice(0, KITTY_SIZE);
+  s.kitty = deck.splice(0, rulesOf(s).kitty);
   s.deck = deck;
   s.hands = [[], [], [], []];
   s.trumpRank = s.dealer === null ? s.levels[0] : s.levels[teamOf(s.dealer)];
@@ -178,6 +214,7 @@ export function declareOptions(s: GameState, seat: number): DeclareOption[] {
     const rankCards = hand.filter((c) => c.suit === suit && c.rank === s.trumpRank);
     if (rankCards.length >= 1) opts.push({ cardIds: [rankCards[0].id], suit, strength: 1 });
     if (rankCards.length >= 2) opts.push({ cardIds: rankCards.slice(0, 2).map((c) => c.id), suit, strength: 2 });
+    if (rankCards.length >= 3) opts.push({ cardIds: rankCards.slice(0, 3).map((c) => c.id), suit, strength: 5 });
   }
   for (const [rank, strength] of [
     [SMALL_JOKER, 3],
@@ -185,12 +222,14 @@ export function declareOptions(s: GameState, seat: number): DeclareOption[] {
   ] as const) {
     const js = hand.filter((c) => c.suit === 'J' && c.rank === rank);
     if (js.length >= 2) opts.push({ cardIds: js.slice(0, 2).map((c) => c.id), suit: 'NT', strength });
+    // any triple outranks any pair
+    if (js.length >= 3) opts.push({ cardIds: js.slice(0, 3).map((c) => c.id), suit: 'NT', strength: strength + 3 });
   }
   const cur = s.declaration;
   if (!cur) return opts;
   return opts.filter((o) => {
     if (cur.seat === seat) {
-      // You may only reinforce your own declaration (single -> pair of the same suit), or go to jokers.
+      // You may only reinforce your own declaration (single -> pair -> triple of the same suit), or go to jokers.
       return o.strength > cur.strength && (o.suit === cur.suit || o.suit === 'NT');
     }
     return o.strength > cur.strength;
@@ -240,9 +279,10 @@ export function finalizeDeclaration(s: GameState): void {
 export function bury(s: GameState, seat: number, cardIds: string[]): Result {
   if (s.phase !== 'burying' || seat !== s.dealer) return 'Not your turn to bury';
   const ids = new Set(cardIds);
-  if (ids.size !== KITTY_SIZE) return `Select exactly ${KITTY_SIZE} cards to bury`;
+  const n = rulesOf(s).kitty;
+  if (ids.size !== n) return `Select exactly ${n} cards to bury`;
   const hand = s.hands[seat];
-  if (hand.filter((c) => ids.has(c.id)).length !== KITTY_SIZE) return 'Invalid cards';
+  if (hand.filter((c) => ids.has(c.id)).length !== n) return 'Invalid cards';
   s.kitty = hand.filter((c) => ids.has(c.id));
   s.hands[seat] = hand.filter((c) => !ids.has(c.id));
   s.phase = 'playing';
@@ -337,21 +377,19 @@ function endRound(s: GameState, last: Trick): void {
   const kittyBonus = kittyPoints * kittyMultiplier;
   s.attackerPoints += kittyBonus;
   const p = s.attackerPoints;
+  const { attackersWin, gained } = roundLevels(p, rulesOf(s));
   const prevLevels: [number, number] = [...s.levels];
   const levels: [number, number] = [...s.levels];
   let winnerTeam: number;
-  let gained: number;
   let nextDealer: number;
   let gameWinner: number | null = null;
-  if (p < 80) {
+  if (!attackersWin) {
     winnerTeam = defenders;
-    gained = p === 0 ? 3 : p < 40 ? 2 : 1;
     if (levels[defenders] >= 14) gameWinner = defenders;
     levels[defenders] = Math.min(14, levels[defenders] + gained);
     nextDealer = (dealer + 2) % NUM_PLAYERS;
   } else {
     winnerTeam = attackers;
-    gained = Math.floor((p - 80) / 40);
     levels[attackers] = Math.min(14, levels[attackers] + gained);
     nextDealer = nextSeat(dealer);
   }
@@ -379,6 +417,6 @@ export function nextRound(s: GameState): void {
   startRound(s);
 }
 
-export function resetToLobby(s: GameState, startLevel = 2): GameState {
-  return { ...newGame(startLevel), eventSeq: s.eventSeq };
+export function resetToLobby(s: GameState, startLevel = 2, decks = 2): GameState {
+  return { ...newGame(startLevel, decks), eventSeq: s.eventSeq };
 }

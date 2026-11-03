@@ -1,6 +1,6 @@
 import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
+import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
 import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
 import { decompose, effSuit, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
 import { Action, PlayerView, SeatView } from '../net/protocol';
@@ -97,7 +97,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
     if (myTurn && !playError) {
       send({ type: 'play', cardIds: [...selected] });
       setSelected(new Set());
-    } else if (iBury && selected.size === 8) {
+    } else if (iBury && selected.size === view.rules.kitty) {
       send({ type: 'bury', cardIds: [...selected] });
       setSelected(new Set());
     }
@@ -230,10 +230,11 @@ function Hud({
   let detail: React.ReactNode;
   if (d) {
     const who = d.seat === view.you ? 'You' : view.seats[d.seat]?.name ?? '';
+    const set = d.cards.length === 3 ? 'triple of ' : d.cards.length === 2 ? 'pair of ' : '';
     const what =
       d.suit === 'NT'
-        ? `pair of ${d.strength === 4 ? 'big' : 'small'} jokers`
-        : `${d.cards.length > 1 ? 'pair of ' : ''}${levelLabel(view.trumpRank)}${SUIT_GLYPH[d.suit]}`;
+        ? `${set}${d.cards[0].rank === BIG_JOKER ? 'big' : 'small'} jokers`
+        : `${set}${levelLabel(view.trumpRank)}${SUIT_GLYPH[d.suit]}`;
     detail = (
       <>
         Declared by <b>{who}</b> · {what}
@@ -373,7 +374,8 @@ function TeamPanel({ view, team }: { view: PlayerView; team: number }) {
   const members = [team, team + 2].map((s) => (s === view.you ? 'You' : view.seats[s]?.name ?? '—')).join(' & ');
   const inRound = view.phase === 'playing' || view.phase === 'roundEnd' || view.phase === 'gameOver';
   const blocked = Math.max(0, view.pointsPlayed - view.attackerPoints);
-  const need = Math.max(0, 80 - view.attackerPoints);
+  const { win, step, points: total } = view.rules;
+  const need = Math.max(0, win - view.attackerPoints);
   const count = (rank: number) => view.capturedCards.filter((c) => c.rank === rank).length;
 
   return (
@@ -416,14 +418,14 @@ function TeamPanel({ view, team }: { view: PlayerView; team: number }) {
         </div>
         <div className="foot-line">
           {attacking && (
-            <div className="track" title="80 points takes the deal; every 40 more is a level">
+            <div className="track" title={`${win} points takes the deal; every ${step} more is a level`}>
               <motion.div
                 className="fill"
-                animate={{ width: `${Math.min(100, (view.attackerPoints / 200) * 100)}%` }}
+                animate={{ width: `${Math.min(100, (view.attackerPoints / total) * 100)}%` }}
                 transition={{ type: 'spring', stiffness: 90, damping: 18 }}
               />
-              {[40, 80, 120, 160].map((at) => (
-                <div key={at} className={`tick ${at === 80 ? 'flip' : ''}`} style={{ left: `${(at / 200) * 100}%` }} />
+              {Array.from({ length: total / step - 1 }, (_, i) => (i + 1) * step).map((at) => (
+                <div key={at} className={`tick ${at === win ? 'flip' : ''}`} style={{ left: `${(at / total) * 100}%` }} />
               ))}
             </div>
           )}
@@ -562,7 +564,7 @@ function seatPoint(pos: Pos, size: Size) {
 
 function DealAnimation({ view, size }: { view: PlayerView; size: Size }) {
   if (view.phase !== 'dealing') return null;
-  const dealtCount = 100 - view.deckRemaining;
+  const dealtCount = 54 * view.rules.decks - view.rules.kitty - view.deckRemaining;
   const first = view.dealer ?? 0;
   const flights = [0, 1, 2].map((k) => dealtCount - k).filter((d) => d > 0);
   return (
@@ -674,7 +676,7 @@ function DeclareSplash({ view, name }: { view: PlayerView; name: (s: number) => 
         >
           <div className={`big ${redSuit(d.suit) ? 'red' : ''}`}>{trumpGlyph(d.suit)}</div>
           <div className="cap">
-            {name(d.seat)} {d.strength >= 2 ? 'locked in' : 'declared'} {d.suit === 'NT' ? 'no trump' : SUIT_NAME[d.suit]}
+            {name(d.seat)} {lockedIn(d.strength, view.rules.decks) ? 'locked in' : 'declared'} {d.suit === 'NT' ? 'no trump' : SUIT_NAME[d.suit]}
           </div>
         </motion.div>
       )}
@@ -802,10 +804,16 @@ interface BarProps {
   hintPending: boolean;
 }
 
-function declareLabel(o: DeclareOption) {
-  if (o.suit === 'NT') return o.strength === 4 ? 'No trump · big joker pair' : 'No trump · small joker pair';
-  const g = SUIT_GLYPH[o.suit];
-  return o.strength === 2 ? `Lock in ${g}${g}` : `Declare ${g}`;
+/** A rank-card declaration only jokers can override: a pair with 2 decks, a triple with 3. */
+function lockedIn(strength: number, decks: number) {
+  return strength >= (decks === 3 ? 5 : 2);
+}
+
+function declareLabel(o: DeclareOption, decks: number) {
+  const n = o.cardIds.length;
+  if (o.suit === 'NT') return `No trump · ${o.strength === 4 || o.strength === 7 ? 'big' : 'small'} joker ${n === 3 ? 'triple' : 'pair'}`;
+  const g = SUIT_GLYPH[o.suit].repeat(n);
+  return lockedIn(o.strength, decks) ? `Lock in ${g}` : `Declare ${g}`;
 }
 
 function describeLead(lead: Card[], ctx: TrumpCtx): string {
@@ -814,7 +822,8 @@ function describeLead(lead: Card[], ctx: TrumpCtx): string {
   const where = suit === 'T' ? 'trump' : SUIT_GLYPH[suit];
   if (comps.length > 1) return `Follow a ${lead.length}-card throw in ${where}`;
   const c = comps[0];
-  const shape = c.kind === 'single' ? 'a single' : c.kind === 'pair' ? 'a pair' : `a ${c.len}-pair tractor`;
+  const shape =
+    c.kind === 'tractor' ? `a ${c.len}-${c.width === 3 ? 'triple' : 'pair'} tractor` : c.kind === 'single' ? 'a single' : `a ${c.kind}`;
   return `Follow ${shape} in ${where}`;
 }
 
@@ -833,7 +842,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       whileHover={{ scale: 1.06 }}
       onClick={() => send({ type: 'declare', cardIds: o.cardIds })}
     >
-      {declareLabel(o)}
+      {declareLabel(o, view.rules.decks)}
     </motion.button>
   ));
 
@@ -873,7 +882,9 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
     if (iBury) {
       status = (
         <>
-          Bury <b>8</b> cards into the kitty · {selectedCount}/8
+          <span>
+            Bury <b>{view.rules.kitty}</b> cards<span className="wide-only"> into the kitty</span> · {selectedCount}/{view.rules.kitty}
+          </span>
         </>
       );
       buttons = (
@@ -884,7 +895,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
           <button className="btn small" onClick={onClear} disabled={selectedCount === 0}>
             Clear
           </button>
-          <button className="btn primary small" disabled={selectedCount !== 8} onClick={onPlay}>
+          <button className="btn primary small" disabled={selectedCount !== view.rules.kitty} onClick={onPlay}>
             Bury
           </button>
         </>
@@ -1049,7 +1060,7 @@ function RoundEnd({ view, send }: { view: PlayerView; send: (a: Action) => void 
       <div className="sub">{subtitle}</div>
       <div>
         <div className="label">Attackers scored</div>
-        <div className="big-num" style={{ color: r.attackerPoints >= 80 ? 'var(--gold-hi)' : 'var(--ink)' }}>
+        <div className="big-num" style={{ color: r.attackerPoints >= view.rules.win ? 'var(--gold-hi)' : 'var(--ink)' }}>
           <CountUp to={r.attackerPoints} delay={0.3} />
         </div>
         {r.kittyBonus > 0 && (

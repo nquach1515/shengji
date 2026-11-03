@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, copyText, posOf, sideOf } from './common';
-import { LENGTHS, PACES, Segmented } from './Home';
+import { DECK_OPTIONS, LENGTHS, PACES, Segmented } from './Home';
 
 const SPOT: Record<string, { left: string; top: string }> = {
   bottom: { left: '50%', top: '100%' },
@@ -144,6 +144,15 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
               />
             </div>
             <div className="opt-row">
+              <span className="label">Decks</span>
+              <Segmented
+                id="lobby-decks"
+                options={DECK_OPTIONS.map((d) => ({ value: d.decks, label: d.label }))}
+                value={view.settings.decks ?? 2}
+                onChange={(decks) => send({ type: 'settings', settings: { decks } })}
+              />
+            </div>
+            <div className="opt-row">
               <span className="label">Pace</span>
               <Segmented
                 id="lobby-pace"
@@ -155,7 +164,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
           </div>
         ) : (
           <div className="foot">
-            {LENGTHS.find((l) => l.level === view.settings.startLevel)?.label} game · {view.settings.pace} pace
+            {LENGTHS.find((l) => l.level === view.settings.startLevel)?.label} game · {view.rules.decks} decks · {view.settings.pace} pace
           </div>
         )}
 

@@ -12,6 +12,7 @@ import { learnedPlay } from '../src/game/policy';
 
 const nm = () => '';
 const games = Number(process.argv[2] ?? 40);
+const decks = Number(process.argv[3] ?? 2);
 const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
 const checks = { plays: 0, learned: 0, bury: 0, declare: 0, features: 0, search: 0 };
 const leaks: string[] = [];
@@ -22,7 +23,7 @@ function alternateWorld(s: GameState, seat: number): GameState {
 }
 
 for (let g = 0; g < games; g++) {
-  const s = newGame();
+  const s = newGame(2, decks);
   startRound(s);
   while (s.phase === 'dealing') {
     const seat = dealOne(s, 0);
