@@ -5,11 +5,17 @@ import { writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
-import { learnedPlay } from '../../src/game/policy';
+import { readFileSync } from 'node:fs';
+import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
 import { feedTrickMove, hopelessTrickMove, keepHighCards, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
+// a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
+const newPlay = process.env.NEW_WEIGHTS ? learnedPlayWith(JSON.parse(readFileSync(process.env.NEW_WEIGHTS, 'utf8'))) : learnedPlay;
 const configs: Record<string, Policy> = {
+  'learned-new': newPlay,
+  'live-new': (s, seat) =>
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat))),
   heuristic: botPlay,
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,

@@ -25,6 +25,8 @@ FEATURES = [
     "boss_card_fraction", "is_ruff", "off_suit_discard_fraction", "move_has_pair", "move_has_tractor",
     "move_is_throw", "my_length_in_move_suit", "opponent_void_in_move_suit", "partner_void_in_move_suit",
     "unseen_higher_in_move_suit", "heuristic_choice", "points_given_to_opponents", "points_fed_to_partner",
+    "unseen_points", "dealer_kitty_points", "attacker_points_to_next_threshold", "attacker_points_vs_80",
+    "unseen_in_move_suit", "unseen_points_in_move_suit", "unseen_in_lead_suit",
 ]
 TEMP = 4.0  # points; how sharply the target prefers better moves
 SEED = 7

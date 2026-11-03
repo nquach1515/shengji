@@ -90,6 +90,13 @@ export const FEATURE_NAMES = [
   'heuristic_choice',
   'points_given_to_opponents',
   'points_fed_to_partner',
+  'unseen_points',
+  'dealer_kitty_points',
+  'attacker_points_to_next_threshold',
+  'attacker_points_vs_80',
+  'unseen_in_move_suit',
+  'unseen_points_in_move_suit',
+  'unseen_in_lead_suit',
 ] as const;
 
 const NF = FEATURE_NAMES.length;
@@ -176,6 +183,18 @@ export function moveFeatures(dc: DecisionContext, move: Card[]): number[] {
     if (dc.partnerWinning) f[37] = pts / 40;
     else f[36] = pts / 40;
   }
+  // Card counting and score situation.
+  f[38] = totalPoints(unseen) / 200;
+  // Only the dealer has seen the kitty — not even their partner.
+  f[39] = seat === s.dealer ? totalPoints(s.kitty) / 40 : 0;
+  const nextThreshold = [40, 80, 120, 160, 200].find((t) => t > s.attackerPoints) ?? 240;
+  f[40] = (nextThreshold - s.attackerPoints) / 40;
+  f[41] = (s.attackerPoints - 80) / 80;
+  if (moveSuit) {
+    f[42] = unseenIn(moveSuit).length / 26;
+    f[43] = totalPoints(unseenIn(moveSuit)) / 50;
+  }
+  f[44] = leadSuit ? unseenIn(leadSuit).length / 26 : 0;
   return f;
 }
 
