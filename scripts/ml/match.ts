@@ -22,6 +22,9 @@ const configs: Record<string, Policy> = {
   'search+learned+feed': (s, seat) => feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
   // plus: never follow with a higher card than needed
   'search+learned+feed+keep': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat))),
+  // what's live: hopeless tricks dump the cheapest cards, partner-won tricks get fed, never a higher card than needed
+  live: (s, seat) =>
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat))),
   // plus: when nothing can win the trick and partner isn't winning, dump with the heuristic
   'search+learned+settled+hopeless': (s, seat) =>
     settledTrickMove(s, seat) ?? hopelessTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
