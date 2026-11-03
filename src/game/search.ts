@@ -110,7 +110,19 @@ export function moveOptions(s: GameState, seat: number): string[][] {
 }
 
 /** Plays `move` and finishes the round with the heuristic bot; returns points from `seat`'s team's view. */
-export function rollout(d: GameState, seat: number, move: string[]): number {
+/** How much the live search values the level outcome against raw points (see attackerValue). */
+export const LEVEL_WEIGHT = 20;
+
+/**
+ * A round's value from the attackers' side: their points, plus `levelWeight` per level the attackers gain (or minus
+ * per level the defenders gain), plus or minus `levelWeight / 2` for who deals next. Mirrors endRound's scoring.
+ */
+export function attackerValue(points: number, levelWeight: number): number {
+  if (points < 80) return points - levelWeight * ((points === 0 ? 3 : points < 40 ? 2 : 1) + 0.5);
+  return points + levelWeight * (Math.floor((points - 80) / 40) + 0.5);
+}
+
+export function rollout(d: GameState, seat: number, move: string[], levelWeight = 0): number {
   if (play(d, seat, move, noName)) return 0;
   if (d.trick!.winner !== null) collectTrick(d, noName);
   while (d.phase === 'playing') {
@@ -119,7 +131,8 @@ export function rollout(d: GameState, seat: number, move: string[]): number {
     if (d.trick!.winner !== null) collectTrick(d, noName);
   }
   const attacking = seat % 2 !== d.dealer! % 2;
-  return attacking ? d.result!.attackerPoints : -d.result!.attackerPoints;
+  const v = attackerValue(d.result!.attackerPoints, levelWeight);
+  return attacking ? v : -v;
 }
 
 /**
@@ -127,7 +140,7 @@ export function rollout(d: GameState, seat: number, move: string[]): number {
  * heuristic bot's choice). "Clearly better" is judged on paired results over the same sampled deals: the
  * alternative must win by more than 1.5 standard errors of the difference, so noise alone won't overturn the prior.
  */
-export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[]): string[] {
+export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[], levelWeight = 0): string[] {
   if (leadsOnly && s.trick!.plays.length > 0) return prior ?? botPlay(s, seat);
   const options = moveOptions(s, seat);
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
@@ -142,7 +155,7 @@ export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly =
   if (options.length === 1) return options[0];
   try {
     const deals = Array.from({ length: samples }, () => determinize(s, seat));
-    const scores = options.map((m) => deals.map((d) => rollout(cloneState(d), seat, m)));
+    const scores = options.map((m) => deals.map((d) => rollout(cloneState(d), seat, m, levelWeight)));
     const mean = (xs: number[]) => xs.reduce((t, x) => t + x, 0) / xs.length;
     let best = start;
     for (let i = 0; i < options.length; i++) {
@@ -171,6 +184,7 @@ export function searchPlayTimed(
   prior?: string[],
   minSamples = 16,
   maxSamples = 400,
+  levelWeight = 0,
 ): string[] {
   const options = moveOptions(s, seat);
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
@@ -188,7 +202,7 @@ export function searchPlayTimed(
   try {
     while (scores[0].length < maxSamples && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
       const d = determinize(s, seat);
-      options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m)));
+      options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
     }
   } catch {
     if (scores[0].length < minSamples) return options[start];

@@ -1,6 +1,8 @@
-// Training data, round 2 (expert iteration): self-play games are played by the current trained model (with some
+// Training data, rounds 2+ (expert iteration): self-play games are played by the current trained model (with some
 // exploration), and every sensible option is scored by Monte Carlo search whose playouts also use the trained model
 // — a stronger teacher than round 1, whose games and playouts used the heuristic bot. One JSON line per decision.
+// Playouts are scored by points plus a bonus for the level outcome (LEVEL_WEIGHT points per level and for taking or
+// keeping the deal), so crossing 40/80/120 matters more than a point either side of it. LEVEL_WEIGHT=0 → raw points.
 //   npx tsx scripts/ml/gen2.ts <decisions> <deals-per-option> <out.jsonl>
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
@@ -8,12 +10,13 @@ import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, n
 import { decisionContext, moveFeatures } from '../../src/game/features';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
-import { cloneState, determinize, moveOptions } from '../../src/game/search';
+import { attackerValue, cloneState, determinize, moveOptions } from '../../src/game/search';
 
 const target = Number(process.argv[2] ?? 1000);
 const samples = Number(process.argv[3] ?? 32);
 const out = process.argv[4] ?? 'data.jsonl';
 const nm = () => '';
+const LEVEL_WEIGHT = Number(process.env.LEVEL_WEIGHT ?? 20);
 
 function playout(d: GameState, seat: number, move: string[]): number {
   if (play(d, seat, move, nm)) return 0;
@@ -23,7 +26,8 @@ function playout(d: GameState, seat: number, move: string[]): number {
     if (d.trick!.winner !== null) collectTrick(d, nm);
   }
   const attacking = seat % 2 !== d.dealer! % 2;
-  return attacking ? d.result!.attackerPoints : -d.result!.attackerPoints;
+  const v = attackerValue(d.result!.attackerPoints, LEVEL_WEIGHT);
+  return attacking ? v : -v;
 }
 
 writeFileSync(out, '');
