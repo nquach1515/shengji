@@ -7,7 +7,7 @@ import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, n
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
-import { attackerValue, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
+import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 // a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
@@ -15,8 +15,21 @@ const newPlay = process.env.NEW_WEIGHTS ? learnedPlayWith(JSON.parse(readFileSyn
 const configs: Record<string, Policy> = {
   'learned-new': newPlay,
   // the retrained model, with the search also scoring playouts by points + levels
+  // plus: feed a partner's single-card win when card counting says it very likely holds
+  // (tested at 65%: -0.06 ± 1.56 pts, -0.01 ± 0.07 levels per round — neutral; shipped since it fixes visible misses)
+  'live-feed': (s, seat) =>
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
+  // plus: also cash a side-suit top card when card counting says nobody is likely to trump it
+  // (tested at 65%: -0.81 ± 1.57 pts, -0.05 ± 0.07 levels per round vs live — not shipped)
+  'live-feed-cash': (s, seat) =>
+    keepHighCards(
+      s,
+      seat,
+      hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? cashTopCardMove(s, seat) ??
+        searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT),
+    ),
   'live-new': (s, seat) =>
-    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   heuristic: botPlay,
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,
@@ -31,7 +44,7 @@ const configs: Record<string, Policy> = {
   'search+learned+feed+keep': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat))),
   // what's live: hopeless tricks dump the cheapest cards, partner-won tricks get fed, never a higher card than needed
   live: (s, seat) =>
-    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
+    keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
   // plus: when nothing can win the trick and partner isn't winning, dump with the heuristic
   'search+learned+settled+hopeless': (s, seat) =>
     settledTrickMove(s, seat) ?? hopelessTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),

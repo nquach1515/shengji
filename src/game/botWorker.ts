@@ -8,13 +8,13 @@
 // score threshold counts for more than a point either side of it.
 import { GameState } from './engine';
 import { learnedPlay } from './policy';
-import { feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, searchPlayTimed } from './search';
+import { feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, searchPlayTimed } from './search';
 
 self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; budgetMs: number }>) => {
   const { id, state, seat, budgetMs } = e.data;
   let ids: string[] | null = null;
   try {
-    ids = keepHighCards(state, seat, hopelessTrickMove(state, seat) ?? feedTrickMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), 32, 400, LEVEL_WEIGHT));
+    ids = keepHighCards(state, seat, hopelessTrickMove(state, seat) ?? feedTrickMove(state, seat) ?? feedLikelyMove(state, seat) ?? searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), 32, 400, LEVEL_WEIGHT));
   } catch {
     ids = null;
   }

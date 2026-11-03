@@ -9,9 +9,9 @@
  * hidden hands — only at random guesses of them.
  */
 import { botPlay, candidates } from './bot';
-import { Card, cardKey, makeDecks, points, shuffle } from './cards';
+import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
 import { checkPlay, collectTrick, ctxOf, GameState, play } from './engine';
-import { cardValue, decompose, effSuit, trickWinner } from './rules';
+import { cardValue, decompose, effSuit, isTrump, trickWinner, validateFollow } from './rules';
 import { knownLocations } from './info';
 
 const noName = () => '';
@@ -289,6 +289,104 @@ export function keepHighCards(s: GameState, seat: number, ids: string[]): string
     }
   }
   return move;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Card counting: how likely is a single card to hold up against the players still to play?
+
+/** Chance that a hand of `h` cards dealt from `n` unknown cards contains none of `k` particular ones. */
+function noneOf(n: number, k: number, h: number): number {
+  let p = 1;
+  for (let i = 0; i < h; i++) p *= Math.max(0, n - k - i) / (n - i);
+  return p;
+}
+
+/**
+ * Chance that `card`, currently winning a single-card trick, still wins once `laterSeats` have played — judged only
+ * from what `seat` knows: the unseen cards are spread over the other hands (and the kitty, unless we're the dealer),
+ * whose sizes are public. Each later opponent beats it by holding a higher card of its suit, or by being out of the
+ * led suit (shown, or by chance — likelier the more of the suit has been played) while holding a trump.
+ */
+export function holdChance(s: GameState, seat: number, card: Card, leadSuit: string, laterSeats: number[]): number {
+  const ctx = ctxOf(s);
+  const hand = s.hands[seat];
+  const seen = new Set([...hand, ...s.played, ...(seat === s.dealer ? s.kitty : [])].map((c) => c.id));
+  const unseen = makeDecks(2).filter((c) => !seen.has(c.id));
+  const n = unseen.length;
+  const suit = effSuit(card, ctx);
+  const inSuit = unseen.filter((c) => effSuit(c, ctx) === leadSuit).length;
+  const higher = unseen.filter((c) => effSuit(c, ctx) === suit && cardValue(c, ctx) > cardValue(card, ctx)).length;
+  const trumps = unseen.filter((c) => isTrump(c, ctx)).length;
+  let hold = 1;
+  for (const o of laterSeats) {
+    if (o % 2 === seat % 2) continue; // partner
+    const h = s.hands[o].length;
+    const shownVoid = s.voids[o].includes(leadSuit as never);
+    const shownNoTrump = s.voids[o].includes('T');
+    // higher card in the same suit (only possible if they can follow; a ruffed card is beaten by any trump)
+    const pHigher = suit === leadSuit && !shownVoid ? 1 - noneOf(n, higher, h) : 0;
+    let pRuff = 0;
+    if (leadSuit !== 'T' && suit !== 'T' && !shownNoTrump) {
+      const pVoid = shownVoid ? 1 : noneOf(n, inSuit, h);
+      pRuff = pVoid * (1 - noneOf(n - inSuit, trumps, h));
+    }
+    hold *= Math.max(0, 1 - pHigher - pRuff);
+  }
+  return hold;
+}
+
+/** How sure the partner must be that a trick holds before feeding it points, or before cashing a top card. */
+export const HOLD_THRESHOLD = 0.65;
+
+/**
+ * Partner is winning a single-card trick and, by card counting, will very likely keep it: play the most points we
+ * can, without breaking a pair or spending a trump (unless trumps were led), preferring not to overtake partner.
+ */
+export function feedLikelyMove(s: GameState, seat: number, threshold = HOLD_THRESHOLD): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length === 0 || trick.plays[0].cards.length !== 1) return null;
+  const ctx = ctxOf(s);
+  const winner = trickWinner(trick.plays, ctx);
+  if (winner !== (seat + 2) % 4) return null;
+  const lead = trick.plays[0].cards;
+  const leadSuit = effSuit(lead[0], ctx);
+  const played = new Set(trick.plays.map((p) => p.seat));
+  const later = [1, 2, 3].map((i) => (seat + i) % 4).filter((x) => !played.has(x));
+  const winCard = trick.plays.find((p) => p.seat === winner)!.cards[0];
+  if (holdChance(s, seat, winCard, leadSuit, later) < threshold) return null;
+  const hand = s.hands[seat];
+  const legal = candidates(hand, lead, ctx).filter((c) => c.length === 1 && validateFollow(c, hand, lead, ctx) === null);
+  if (legal.length === 0) return null;
+  const count = new Map<string, number>();
+  for (const c of hand) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);
+  const score = ([c]: Card[]) =>
+    points(c) * 10 -
+    ((count.get(cardKey(c)) ?? 0) >= 2 ? 25 : 0) -
+    (leadSuit !== 'T' && isTrump(c, ctx) ? 40 : 0) -
+    (trickWinner([...trick.plays, { seat, cards: [c] }], ctx) === seat ? 3 : 0) -
+    cardValue(c, ctx) * 0.1;
+  const best = legal.slice().sort((a, b) => score(b) - score(a))[0];
+  return totalPoints(best) > 0 ? best.map((c) => c.id) : null;
+}
+
+/**
+ * On lead holding the highest remaining card of a side suit: cash it while, by card counting, nobody is likely to
+ * be able to trump it. Picks the suit with the most cards still out (least likely to be ruffed).
+ */
+export function cashTopCardMove(s: GameState, seat: number, threshold = HOLD_THRESHOLD): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length !== 0) return null;
+  const ctx = ctxOf(s);
+  const hand = s.hands[seat];
+  const later = [1, 2, 3].map((i) => (seat + i) % 4);
+  let best: { card: Card; p: number } | null = null;
+  for (const c of hand) {
+    // a pair is better led as a pair than split
+    if (isTrump(c, ctx) || hand.filter((x) => cardKey(x) === cardKey(c)).length >= 2) continue;
+    const p = holdChance(s, seat, c, effSuit(c, ctx), later);
+    if (p >= threshold && (!best || p > best.p)) best = { card: c, p };
+  }
+  return best ? [best.card.id] : null;
 }
 
 /**
