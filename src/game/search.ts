@@ -436,6 +436,30 @@ export function noRiskyPointLead(s: GameState, seat: number, ids: string[]): str
 }
 
 /**
+ * Don't underlead a top card: leading a lower card of a side suit while holding a card of it nothing unseen can beat
+ * (e.g. 6♦ from A♦ 6♦ with the other A♦ still out) lets an opponent win the trick, with their partner throwing points
+ * on it. Unless an opponent has shown they can trump the suit, lead the top card instead.
+ */
+export function noUnderlead(s: GameState, seat: number, ids: string[]): string[] {
+  const trick = s.trick!;
+  if (trick.plays.length !== 0 || ids.length !== 1) return ids;
+  const hand = s.hands[seat];
+  const card = hand.find((c) => c.id === ids[0]);
+  if (!card) return ids;
+  const ctx = ctxOf(s);
+  const suit = effSuit(card, ctx);
+  if (suit === 'T') return ids;
+  if ([(seat + 1) % 4, (seat + 3) % 4].some((o) => s.voids[o].includes(suit) && !s.voids[o].includes('T'))) return ids;
+  const seen = new Set([...hand, ...s.played, ...(seat === s.dealer ? s.kitty : [])].map((c) => c.id));
+  const unseen = makeDecks(decksOf(s)).filter((c) => !seen.has(c.id) && effSuit(c, ctx) === suit);
+  const top = hand
+    .filter((c) => effSuit(c, ctx) === suit && cardValue(c, ctx) > cardValue(card, ctx) && !unseen.some((u) => cardValue(u, ctx) > cardValue(c, ctx)))
+    .filter((c) => !hand.some((x) => x !== c && cardKey(x) === cardKey(c))) // a pair or triple is better led whole
+    .sort((a, b) => cardValue(b, ctx) - cardValue(a, ctx))[0];
+  return top && checkPlay(s, seat, [top.id]) === null ? [top.id] : ids;
+}
+
+/**
  * On lead holding the highest remaining card of a side suit: cash it while, by card counting, nobody is likely to
  * be able to trump it. Picks the suit with the most cards still out (least likely to be ruffed).
  */
