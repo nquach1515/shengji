@@ -438,7 +438,9 @@ export function noRiskyPointLead(s: GameState, seat: number, ids: string[]): str
 /**
  * Don't underlead a top card: leading a lower card of a side suit while holding a card of it nothing unseen can beat
  * (e.g. 6♦ from A♦ 6♦ with the other A♦ still out) lets an opponent win the trick, with their partner throwing points
- * on it. Unless an opponent has shown they can trump the suit, lead the top card instead.
+ * on it. Unless an opponent has shown they can trump the suit, lead the top card instead. Measured neutral (2,000
+ * duplicate deals: +0.15 ± 0.23 points/round with 2 decks, -0.00 ± 0.17 with 3), kept because the underlead looks
+ * like a gift.
  */
 export function noUnderlead(s: GameState, seat: number, ids: string[]): string[] {
   const trick = s.trick!;
