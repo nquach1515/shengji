@@ -221,7 +221,8 @@ export function declareOptions(s: GameState, seat: number): DeclareOption[] {
     [BIG_JOKER, 4],
   ] as const) {
     const js = hand.filter((c) => c.suit === 'J' && c.rank === rank);
-    if (js.length >= 2) opts.push({ cardIds: js.slice(0, 2).map((c) => c.id), suit: 'NT', strength });
+    // with 3 decks only three of the same joker declare no trump
+    if (js.length >= 2 && decksOf(s) !== 3) opts.push({ cardIds: js.slice(0, 2).map((c) => c.id), suit: 'NT', strength });
     // any triple outranks any pair
     if (js.length >= 3) opts.push({ cardIds: js.slice(0, 3).map((c) => c.id), suit: 'NT', strength: strength + 3 });
   }

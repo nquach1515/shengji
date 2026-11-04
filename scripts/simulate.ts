@@ -267,9 +267,10 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   g.hands[1] = T('C', 2);
   g.hands[2] = [C('D', 2), C('D', 2, 1)];
   g.hands[3] = T('J', 15);
-  assert(declare(g, 0, ['0J16', '1J16']) === null, 'big joker pair declares');
+  assert(declareOptions(g, 0).length === 0 && declare(g, 0, ['0J16', '1J16']) !== null, '3 decks: a joker pair does not declare');
+  assert(declare(g, 2, ['0D2', '1D2']) === null, 'rank pair declares');
   const tri = declareOptions(g, 1).find((o) => o.strength === 5);
-  assert(tri && declare(g, 1, tri.cardIds) === null && g.trumpSuit === 'C', 'rank triple overrides a joker pair');
+  assert(tri && declare(g, 1, tri.cardIds) === null && g.trumpSuit === 'C', 'rank triple overrides a pair');
   assert(declareOptions(g, 2).length === 0, 'a pair cannot override a triple');
   const jt = declareOptions(g, 3).find((o) => o.suit === 'NT');
   assert(jt && jt.strength === 6, 'small-joker triple overrides a rank triple');

@@ -50,7 +50,8 @@ Netlify, Vercel or Cloudflare Pages also work. Use build command `npm run build`
 - The dealer takes the 8-card kitty and buries 8.
 - 3 decks (an option when setting up a game): 38 cards each and a 10-card kitty. Triples (three identical cards)
   and triple tractors join the combinations; a triple must be followed with a triple, or else a pair, but nobody
-  has to split a triple to answer a pair or pair tractor; only a higher triple (or a trump triple) beats one. Declaring with a triple beats any pair. Attackers need 120 of the
+  has to split a triple to answer a pair or pair tractor; only a higher triple (or a trump triple) beats one. Declaring with a triple beats any pair, and no trump takes three of the same
+  joker (a joker pair doesn't declare). Attackers need 120 of the
   300 points; every 40 either side is a level.
 - Singles, pairs and tractors (consecutive pairs, skipping the trump rank). You must follow suit,
   pairs and tractors when you can.

@@ -244,7 +244,7 @@ function Hud({
   else
     detail = (
       <>
-        Show a {levelLabel(view.trumpRank)} to declare<span className="wide-only"> · joker pair for no trump</span>
+        Show a {levelLabel(view.trumpRank)} to declare<span className="wide-only"> · {view.rules.decks === 3 ? 'three jokers' : 'joker pair'} for no trump</span>
       </>
     );
 
