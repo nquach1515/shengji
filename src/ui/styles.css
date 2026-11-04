@@ -476,6 +476,9 @@ input { font: inherit; }
   font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1;
   background: linear-gradient(180deg, #fff3c9, #e8b64c 60%, #c4882a);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* the gradient only paints inside the box: room for the font's descending numerals (3 4 5 7 9), J and Q's tail,
+     taken back with a negative margin so the badge layout doesn't move */
+  padding: 0.04em 0.06em 0.24em; margin: -0.04em -0.06em -0.24em;
 }
 .team-panel .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .team-panel .top { display: flex; align-items: flex-start; gap: 8px; }
