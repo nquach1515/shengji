@@ -7,7 +7,7 @@ import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, Gam
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
-import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
+import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 // a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
@@ -52,6 +52,7 @@ const configs: Record<string, Policy> = {
   'model-live-guard': (s, seat) => modelLive(s, seat, true),
   'model-live-guard75': (s, seat) => modelLive(s, seat, true, 0.75),
   'model-live-leadguard': (s, seat) => modelLive(s, seat, true, HOLD_THRESHOLD, true),
+  'model-live-nounderlead': (s, seat) => modelLive(s, seat, true, HOLD_THRESHOLD, true, true),
   'model-rules': (s, seat) => keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
   'model-rules-no-keep': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat),
   'model-rules-no-hopeless': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
@@ -85,10 +86,10 @@ const configs: Record<string, Policy> = {
   'search+heuristic+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, botPlay(s, seat)),
   'learned+search-leads': (s, seat) => (s.trick!.plays.length === 0 ? searchPlay(s, seat, SEARCH_SAMPLES, true) : learnedPlay(s, seat)),
 };
-function modelLive(s: GameState, seat: number, guard: boolean, bar = HOLD_THRESHOLD, leadGuard = false): string[] {
+function modelLive(s: GameState, seat: number, guard: boolean, bar = HOLD_THRESHOLD, leadGuard = false, noUnder = false): string[] {
   const three = decksOf(s) === 3;
   const learned = learnedPlay(s, seat);
-  const move = hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? (three ? null : feedLikelyMove(s, seat)) ?? (guard ? noRiskyPointsMove(s, seat, leadGuard ? noRiskyPointLead(s, seat, learned) : learned, bar) : learned);
+  const move = hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? (three ? null : feedLikelyMove(s, seat)) ?? (guard ? noRiskyPointsMove(s, seat, leadGuard ? noRiskyPointLead(s, seat, noUnder ? noUnderlead(s, seat, learned) : learned) : learned, bar) : learned);
   return three ? move : keepHighCards(s, seat, move);
 }
 const [a, b] = [process.argv[2], process.argv[3]];
