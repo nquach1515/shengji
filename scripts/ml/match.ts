@@ -3,11 +3,11 @@
 //   npx tsx scripts/ml/match.ts <A> <B> [deals]   configs: heuristic | search-leads | learned | learned-leads | learned+search-leads
 import { writeFileSync } from 'node:fs';
 import { botBury, botDeclare, botPlay } from '../../src/game/bot';
-import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
+import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
-import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
+import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, noRiskyPointsMove, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 // a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
@@ -43,6 +43,10 @@ const configs: Record<string, Policy> = {
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule
   // left out in turn, to measure what it's worth.
+  // the live chain for this deck count with the model in place of the search, with and without the guard against
+  // adding points to a single-card trick our side will probably lose
+  'model-live': (s, seat) => modelLive(s, seat, false),
+  'model-live-guard': (s, seat) => modelLive(s, seat, true),
   'model-rules': (s, seat) => keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
   'model-rules-no-keep': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat),
   'model-rules-no-hopeless': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? learnedPlay(s, seat)),
@@ -76,6 +80,12 @@ const configs: Record<string, Policy> = {
   'search+heuristic+settled': (s, seat) => settledTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, botPlay(s, seat)),
   'learned+search-leads': (s, seat) => (s.trick!.plays.length === 0 ? searchPlay(s, seat, SEARCH_SAMPLES, true) : learnedPlay(s, seat)),
 };
+function modelLive(s: GameState, seat: number, guard: boolean): string[] {
+  const three = decksOf(s) === 3;
+  const learned = learnedPlay(s, seat);
+  const move = hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? (three ? null : feedLikelyMove(s, seat)) ?? (guard ? noRiskyPointsMove(s, seat, learned) : learned);
+  return three ? move : keepHighCards(s, seat, move);
+}
 const [a, b] = [process.argv[2], process.argv[3]];
 const deals = Number(process.argv[4] ?? 200);
 const rawOut = process.argv[5]; // optional: write per-deal results here for pooling parallel runs

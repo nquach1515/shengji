@@ -8,7 +8,7 @@
 // score threshold counts for more than a point either side of it.
 import { decksOf, GameState } from './engine';
 import { learnedPlay } from './policy';
-import { feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, searchPlayTimed } from './search';
+import { feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, noRiskyPointsMove, searchPlayTimed } from './search';
 
 self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; budgetMs: number }>) => {
   const { id, state, seat, budgetMs } = e.data;
@@ -23,7 +23,8 @@ self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; 
       // 3 decks, 3,000 duplicate deals each (scripts/ml/match.ts): feeding a likely-winning partner cost
       // -0.71 ± 0.34 points/round and never-higher-than-needed -0.71 ± 0.37, so neither is used there
       (three ? null : feedLikelyMove(state, seat)) ??
-      searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), minSamples, 400, LEVEL_WEIGHT);
+      // no points into a single-card trick our side will probably lose
+      noRiskyPointsMove(state, seat, searchPlayTimed(state, seat, budgetMs, learnedPlay(state, seat), minSamples, 400, LEVEL_WEIGHT));
     ids = three ? move : keepHighCards(state, seat, move);
   } catch {
     ids = null;

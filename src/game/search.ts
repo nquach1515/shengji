@@ -375,6 +375,37 @@ export function feedLikelyMove(s: GameState, seat: number, threshold = HOLD_THRE
 }
 
 /**
+ * Don't put points into a single-card trick our team is winning but will probably lose: when an opponent still plays
+ * after us and, by card counting, our team's winning card is under `threshold` likely to hold, a move that adds
+ * points is swapped for a legal move with fewer (the heuristic's if it qualifies, else the cheapest). The model can
+ * play a 5 or 10 onto a partner's 9 with higher cards still out, and the search can't always tell it's worse.
+ */
+export function noRiskyPointsMove(s: GameState, seat: number, ids: string[], threshold = HOLD_THRESHOLD): string[] {
+  const trick = s.trick!;
+  if (trick.plays.length === 0 || trick.plays[0].cards.length !== 1) return ids;
+  const hand = s.hands[seat];
+  const cardsOf = (m: string[]) => hand.filter((c) => m.includes(c.id));
+  const pts = totalPoints(cardsOf(ids));
+  if (pts === 0) return ids;
+  const ctx = ctxOf(s);
+  const plays = [...trick.plays, { seat, cards: cardsOf(ids) }];
+  const winner = trickWinner(plays, ctx);
+  if (winner % 2 !== seat % 2) return ids;
+  const played = new Set(plays.map((p) => p.seat));
+  const later = [1, 2, 3].map((i) => (seat + i) % 4).filter((x) => !played.has(x));
+  if (!later.some((x) => x % 2 !== seat % 2)) return ids;
+  const leadSuit = effSuit(trick.plays[0].cards[0], ctx);
+  const winCard = plays.find((p) => p.seat === winner)!.cards[0];
+  if (holdChance(s, seat, winCard, leadSuit, later) >= threshold) return ids;
+  const fewer = moveOptions(s, seat).filter((m) => totalPoints(cardsOf(m)) < pts);
+  if (fewer.length === 0) return ids;
+  const heuristic = botPlay(s, seat);
+  if (fewer.some((m) => [...m].sort().join() === [...heuristic].sort().join())) return heuristic;
+  const value = (m: string[]) => cardsOf(m).reduce((t, c) => t + cardValue(c, ctx) + (isTrump(c, ctx) ? 20 : 0), 0);
+  return fewer.sort((a, b) => totalPoints(cardsOf(a)) - totalPoints(cardsOf(b)) || value(a) - value(b))[0];
+}
+
+/**
  * On lead holding the highest remaining card of a side suit: cash it while, by card counting, nobody is likely to
  * be able to trump it. Picks the suit with the most cards still out (least likely to be ruffed).
  */

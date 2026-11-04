@@ -1,6 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
-import { searchPlay, settledTrickMove } from '../src/game/search';
+import { noRiskyPointsMove, searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
@@ -294,6 +294,28 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
     const [t, gn] = levelsAt(pts);
     assert(t === team && gn === gained, `3 decks, ${pts} points: team ${team} +${gained} (got team ${t} +${gn})`);
   }
+}
+// Partner leads a 9, the next opponent plays under it, and the last opponent still plays with higher spades out:
+// don't put a 5 or 10 onto the 9 (reported from a real game: the model fed points the opponent would take)
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 1;
+  g.trumpRank = 2;
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  const side = [C('C', 3), C('C', 6), C('D', 7), C('D', 8), C('C', 11), C('D', 12), C('C', 4), C('D', 3)];
+  g.hands = [
+    [C('C', 7), C('C', 8), C('C', 9), C('D', 4), C('D', 5), C('D', 6), C('C', 10), C('D', 9), C('D', 10), C('C', 12)],
+    [C('C', 13), C('C', 14), C('D', 13), C('D', 14), C('C', 5), C('D', 11), C('H', 3), C('H', 4), C('H', 5), C('H', 6)],
+    [C('S', 5), C('S', 3), C('S', 8), ...side],
+    [C('S', 14), C('S', 13), C('S', 12), C('S', 11), C('S', 10), C('H', 7), C('H', 8), C('H', 9), C('H', 10), C('H', 11), C('H', 12)],
+  ];
+  g.trick = { leader: 0, plays: [{ seat: 0, cards: [C('S', 9)] }, { seat: 1, cards: [C('S', 4)] }], winner: null, points: 0 };
+  g.played = [C('S', 9), C('S', 4)];
+  g.turn = 2;
+  const m = noRiskyPointsMove(redactFor(g, 2), 2, ['0S5']);
+  assert(m.length === 1 && m[0] !== '0S5' && m[0].startsWith('0S'), `no points onto a 9 the last opponent can beat (played ${m})`);
 }
 console.log('rule checks passed');
 
