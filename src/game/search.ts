@@ -406,6 +406,36 @@ export function noRiskyPointsMove(s: GameState, seat: number, ids: string[], thr
 }
 
 /**
+ * Don't lead a point card that can still be beaten: a single 5, 10 or K led while some unseen card of its suit
+ * (trump included: e.g. a trump 10 with the jokers still out) ranks above it is swapped for a lead with fewer
+ * points — the heuristic's if it qualifies, else the lowest pointless card of that suit, else the cheapest option.
+ * Kept: point cards nothing unseen can beat, and side-suit leads our partner has shown they can trump.
+ */
+export function noRiskyPointLead(s: GameState, seat: number, ids: string[]): string[] {
+  const trick = s.trick!;
+  if (trick.plays.length !== 0 || ids.length !== 1) return ids;
+  const hand = s.hands[seat];
+  const card = hand.find((c) => c.id === ids[0]);
+  if (!card || points(card) === 0) return ids;
+  const ctx = ctxOf(s);
+  const suit = effSuit(card, ctx);
+  const seen = new Set([...hand, ...s.played, ...(seat === s.dealer ? s.kitty : [])].map((c) => c.id));
+  const unseen = makeDecks(decksOf(s)).filter((c) => !seen.has(c.id));
+  if (!unseen.some((c) => effSuit(c, ctx) === suit && cardValue(c, ctx) > cardValue(card, ctx))) return ids;
+  const partner = (seat + 2) % 4;
+  if (suit !== 'T' && s.voids[partner].includes(suit) && !s.voids[partner].includes('T')) return ids;
+  const cardsOf = (m: string[]) => hand.filter((c) => m.includes(c.id));
+  const fewer = moveOptions(s, seat).filter((m) => totalPoints(cardsOf(m)) < points(card));
+  if (fewer.length === 0) return ids;
+  const heuristic = botPlay(s, seat);
+  if (fewer.some((m) => [...m].sort().join() === [...heuristic].sort().join())) return heuristic;
+  const value = (m: string[]) => cardsOf(m).reduce((t, c) => t + cardValue(c, ctx) + (isTrump(c, ctx) ? 20 : 0), 0);
+  const sameSuit = fewer.filter((m) => m.length === 1 && totalPoints(cardsOf(m)) === 0 && effSuit(cardsOf(m)[0], ctx) === suit);
+  const pool = sameSuit.length ? sameSuit : fewer;
+  return pool.sort((a, b) => totalPoints(cardsOf(a)) - totalPoints(cardsOf(b)) || value(a) - value(b))[0];
+}
+
+/**
  * On lead holding the highest remaining card of a side suit: cash it while, by card counting, nobody is likely to
  * be able to trump it. Picks the suit with the most cards still out (least likely to be ruffed).
  */

@@ -1,6 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
-import { noRiskyPointsMove, searchPlay, settledTrickMove } from '../src/game/search';
+import { noRiskyPointLead, noRiskyPointsMove, searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
@@ -317,6 +317,33 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   g.turn = 2;
   const m = noRiskyPointsMove(redactFor(g, 2), 2, ['0S5']);
   assert(m.length === 1 && m[0] !== '0S5' && m[0].startsWith('0S'), `no points onto a 9 the last opponent can beat (played ${m})`);
+}
+// Don't lead a trump 10 with both jokers still out (reported from a real game); a 10 nothing can beat is fine
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 0;
+  g.trumpRank = 2;
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  g.hands = [
+    [C('H', 10), C('H', 4), C('H', 6), C('C', 9), C('C', 12), C('D', 8)],
+    [C('J', 16), C('C', 3), C('C', 4), C('D', 3), C('D', 4), C('S', 3)],
+    [C('J', 16, 1), C('C', 5), C('C', 6), C('D', 5), C('D', 6), C('S', 4)],
+    [C('C', 7), C('C', 8), C('D', 7), C('D', 9), C('S', 5), C('S', 6)],
+  ];
+  g.trick = { leader: 0, plays: [], winner: null, points: 0 };
+  g.turn = 0;
+  const m = noRiskyPointLead(redactFor(g, 0), 0, ['0H10']);
+  assert(m.length === 1 && totalPoints(g.hands[0].filter((c) => m.includes(c.id))) === 0, `no trump 10 led into unseen jokers (led ${m})`);
+  // once every higher trump has been played, the 10 is a safe lead
+  const safe = newGame();
+  Object.assign(safe, structuredClone(g));
+  safe.played = [...['J15', 'J16'].flatMap((k) => [C('J', Number(k.slice(1)), 0), C('J', Number(k.slice(1)), 1)]),
+    ...['S', 'C', 'D', 'H'].flatMap((x) => [C(x as Card['suit'], 2), C(x as Card['suit'], 2, 1)]),
+    ...[11, 12, 13, 14].flatMap((r) => [C('H', r), C('H', r, 1)]), C('H', 10, 1)];
+  safe.hands = safe.hands.map((h) => h.filter((c) => !safe.played.some((p) => p.id === c.id) || c.id === '0H10'));
+  assert(noRiskyPointLead(redactFor(safe, 0), 0, ['0H10'])[0] === '0H10', 'a trump 10 nothing can beat may be led');
 }
 console.log('rule checks passed');
 
