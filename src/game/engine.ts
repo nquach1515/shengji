@@ -1,5 +1,5 @@
 import { BIG_JOKER, Card, makeDecks, points, randomInt, shuffle, SMALL_JOKER, Suit, SUIT_GLYPH, SUITS, totalPoints } from './cards';
-import { checkThrow, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
+import { checkThrow, countPairs, countTuples, decompose, effSuit, sortHand, TrumpCtx, trickWinner, validateFollow, validateLead } from './rules';
 
 export const NUM_PLAYERS = 4;
 export const DECLARE_WINDOW_MS = 8000;
@@ -114,6 +114,11 @@ export interface GameState {
   played: Card[];
   /** effective suits each seat has shown to be out of this round */
   voids: string[][];
+  /**
+   * Per seat, effective suit → the most identical cards of that suit the seat can still hold, shown by failing to
+   * match a pair (2 decks: 1, no pairs left) or a triple (3 decks: 2, no triples left). Absent = no limit shown.
+   */
+  maxCopies?: Record<string, number>[];
   result: RoundResult | null;
   events: GameEvent[];
   eventSeq: number;
@@ -153,6 +158,7 @@ export function newGame(startLevel = 2, decks = 2): GameState {
     capturedCards: [],
     played: [],
     voids: [[], [], [], []],
+    maxCopies: [{}, {}, {}, {}],
     result: null,
     events: [],
     eventSeq: 0,
@@ -182,6 +188,7 @@ export function startRound(s: GameState): void {
   s.capturedCards = [];
   s.played = [];
   s.voids = [[], [], [], []];
+  s.maxCopies = [{}, {}, {}, {}];
   s.result = null;
   s.phase = 'dealing';
 }
@@ -328,6 +335,18 @@ export function play(s: GameState, seat: number, cardIds: string[], seatName: (s
     const leadSuit = effSuit(trick.plays[0].cards[0], ctx);
     const followed = cards.filter((c) => effSuit(c, ctx) === leadSuit).length;
     if (followed < cards.length && !s.voids[seat].includes(leadSuit)) s.voids[seat] = [...s.voids[seat], leadSuit];
+    else if (followed === cards.length) {
+      // Anyone who could match a pair (or triple) in the lead had to, so playing fewer shows there are none left.
+      const lead = decompose(trick.plays[0].cards, ctx);
+      const units = (width: number) => lead.reduce((t, c) => t + (c.width === width ? c.len : 0), 0);
+      const limit = (n: number) => {
+        const m = (s.maxCopies ??= [{}, {}, {}, {}]);
+        m[seat] = { ...m[seat], [leadSuit]: Math.min(m[seat][leadSuit] ?? n, n) };
+      };
+      // 2 decks only: with 3 decks a triple needn't answer a pair, and breaking one can leave a pair behind
+      if (decksOf(s) === 2 && countPairs(cards) < units(2)) limit(1);
+      if (decksOf(s) === 3 && countTuples(cards, 3) < units(3)) limit(2);
+    }
   }
   cards = sortHand(cards, ctx); // show every play in rank order, least to greatest
   s.played = [...s.played, ...cards];

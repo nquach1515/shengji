@@ -30,6 +30,16 @@ export function cloneState(s: GameState): GameState {
 
 /** A random deal of the hidden cards consistent with what `seat` knows. */
 export function determinize(s: GameState, seat: number): GameState {
+  // Deals that also respect who has shown they hold no pairs (or triples) in a suit; that can rarely fail to fit,
+  // so after a few tries fall back to respecting voids alone.
+  for (let i = 0; i < 20; i++) {
+    const d = deal(s, seat, true);
+    if (d) return d;
+  }
+  return deal(s, seat, false)!;
+}
+
+function deal(s: GameState, seat: number, useCopies: boolean): GameState | null {
   const d = cloneState(s);
   const known = new Set<string>([...s.hands[seat], ...s.played].map((c) => c.id));
   if (seat === s.dealer) for (const c of s.kitty) known.add(c.id);
@@ -42,9 +52,10 @@ export function determinize(s: GameState, seat: number): GameState {
     .map((o) => {
       // cards we know this player holds (shown when declaring, or taken back from a blocked throw)
       const got = makeDecks(decksOf(s)).filter((c) => pins.get(c.id) === o);
-      return { who: o as number | 'kitty', cap: s.hands[o].length - got.length, ok: (suit: string) => !s.voids[o].includes(suit), got };
+      const max = useCopies ? (s.maxCopies?.[o] ?? {}) : {};
+      return { who: o as number | 'kitty', cap: s.hands[o].length - got.length, ok: (suit: string) => !s.voids[o].includes(suit), got, max };
     });
-  if (seat !== s.dealer) recips.push({ who: 'kitty', cap: s.kitty.length, ok: () => true, got: [] });
+  if (seat !== s.dealer) recips.push({ who: 'kitty', cap: s.kitty.length, ok: () => true, got: [], max: {} as Record<string, number> });
   const cnt: Record<string, number> = Object.fromEntries(SUITS.map((x) => [x, 0]));
   for (const c of pool) cnt[effSuit(c, ctx)]++;
   // Supply/demand (Hall) condition: every set of suits must fit into the recipients allowed to hold them.
@@ -63,7 +74,10 @@ export function determinize(s: GameState, seat: number): GameState {
     const suit = effSuit(c, ctx);
     cnt[suit]--;
     let placed = false;
-    for (const r of shuffle(recips.filter((r) => r.cap > 0 && r.ok(suit)))) {
+    const key = cardKey(c);
+    const fits = (r: (typeof recips)[number]) =>
+      r.max[suit] === undefined || r.got.filter((g) => cardKey(g) === key).length < r.max[suit];
+    for (const r of shuffle(recips.filter((r) => r.cap > 0 && r.ok(suit) && fits(r)))) {
       r.cap--;
       if (feasible()) {
         r.got.push(c);
@@ -72,7 +86,10 @@ export function determinize(s: GameState, seat: number): GameState {
       }
       r.cap++;
     }
-    if (!placed) throw new Error('could not determinize');
+    if (!placed) {
+      if (useCopies) return null;
+      throw new Error('could not determinize');
+    }
   }
   for (const r of recips) {
     if (r.who === 'kitty') d.kitty = r.got;

@@ -39,6 +39,9 @@ const configs: Record<string, Policy> = {
   'live3-new': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 24, false, newPlay(s, seat), LEVEL_WEIGHT),
   'model3-new': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? newPlay(s, seat),
   model3: (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? learnedPlay(s, seat),
+  // the same bots without the "no pairs / no triples left" facts when guessing hidden hands
+  'live-feed-nofacts': (s, seat) => configs['live-feed']({ ...s, maxCopies: undefined }, seat),
+  'live3-nofacts': (s, seat) => configs.live3({ ...s, maxCopies: undefined }, seat),
   'live-new': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule
