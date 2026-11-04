@@ -7,6 +7,8 @@ import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, Gam
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
+import { liveMove } from '../../src/game/live';
+import { READ_PARAMS } from '../../src/game/inference';
 import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
@@ -42,6 +44,15 @@ const configs: Record<string, Policy> = {
   // the same bots without the "no pairs / no triples left" facts when guessing hidden hands
   'live-feed-nofacts': (s, seat) => configs['live-feed']({ ...s, maxCopies: undefined }, seat),
   'live3-nofacts': (s, seat) => configs.live3({ ...s, maxCopies: undefined }, seat),
+  // exactly the live bots (src/game/live.ts), with 64 sampled deals per move (24 with 3 decks), and the same reading
+  // the other players' recent play (src/game/inference.ts) (READ_TEMP / READ_EPS override the settings)
+  live: (s, seat) => liveMove(s, seat, (prior) => searchPlay(s, seat, decksOf(s) === 3 ? 24 : 64, false, prior, LEVEL_WEIGHT)),
+  'live-read': (s, seat) =>
+    liveMove(s, seat, (prior) => searchPlay(s, seat, decksOf(s) === 3 ? 24 : 64, false, prior, LEVEL_WEIGHT, {
+      ...READ_PARAMS,
+      ...(process.env.READ_TEMP ? { temp: Number(process.env.READ_TEMP) } : {}),
+      ...(process.env.READ_EPS ? { eps: Number(process.env.READ_EPS) } : {}),
+    })),
   'live-new': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule
@@ -74,8 +85,9 @@ const configs: Record<string, Policy> = {
   'search+learned+feed': (s, seat) => feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat)),
   // plus: never follow with a higher card than needed
   'search+learned+feed+keep': (s, seat) => keepHighCards(s, seat, feedTrickMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat))),
-  // what's live: hopeless tricks dump the cheapest cards, partner-won tricks get fed, never a higher card than needed
-  live: (s, seat) =>
+  // what was live before the points guards: hopeless tricks dump the cheapest cards, partner-won tricks get fed,
+  // never a higher card than needed
+  'live-old': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
   // plus: when nothing can win the trick and partner isn't winning, dump with the heuristic
   'search+learned+settled+hopeless': (s, seat) =>

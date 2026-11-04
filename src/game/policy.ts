@@ -47,6 +47,14 @@ export function learnedPlayWith(w: Weights) {
   return (s: GameState, seat: number) => playWith(w, s, seat);
 }
 
+/** The live model's score for each of `options` (higher = better), from `seat`'s point of view. */
+export function moveScores(s: GameState, seat: number, options: string[][]): number[] {
+  const n = decksOf(s) === 3 ? net3 : net;
+  const dc = decisionContext(s, seat, options[0]);
+  const hand = s.hands[seat];
+  return options.map((m) => score(moveFeatures(dc, hand.filter((c: Card) => m.includes(c.id))), n));
+}
+
 function playWith(net: Weights, s: GameState, seat: number): string[] {
   const options = moveOptions(s, seat);
   if (options.length === 1) return options[0];
