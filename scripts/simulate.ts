@@ -1,6 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
-import { noRiskyPointLead, noRiskyPointsMove, searchPlay, settledTrickMove } from '../src/game/search';
+import { noRiskyPointLead, noRiskyPointsMove, noUnderlead, searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
@@ -344,6 +344,19 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
     ...[11, 12, 13, 14].flatMap((r) => [C('H', r), C('H', r, 1)]), C('H', 10, 1)];
   safe.hands = safe.hands.map((h) => h.filter((c) => !safe.played.some((p) => p.id === c.id) || c.id === '0H10'));
   assert(noRiskyPointLead(redactFor(safe, 0), 0, ['0H10'])[0] === '0H10', 'a trump 10 nothing can beat may be led');
+}
+// Don't underlead a side suit's top card: lead A♦, not 6♦, from A♦ 6♦ with the other A♦ still out (from a real game)
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 1;
+  g.trumpRank = 2;
+  g.trumpSuit = 'S';
+  g.phase = 'playing';
+  g.hands = [[C('D', 14), C('D', 6), C('C', 4), C('H', 7)], [C('D', 14, 1), C('C', 5), C('H', 8), C('C', 9)], [C('D', 2), C('C', 6), C('H', 9), C('C', 10)], [C('D', 10), C('C', 7), C('H', 10), C('C', 11)]];
+  g.trick = { leader: 0, plays: [], winner: null, points: 0 };
+  g.turn = 0;
+  assert(noUnderlead(redactFor(g, 0), 0, ['0D6'])[0] === '0D14', 'leads the A♦ rather than underleading it');
 }
 console.log('rule checks passed');
 
