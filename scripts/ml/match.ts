@@ -34,6 +34,11 @@ const configs: Record<string, Policy> = {
   // live with 4x the sampled deals: how much would a faster search be worth?
   'live-256': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 256, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
+  // live bots as they run with 3 decks (no keep-high-cards or likely-feeding rules there), and with a retrained model
+  live3: (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 24, false, learnedPlay(s, seat), LEVEL_WEIGHT),
+  'live3-new': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? searchPlay(s, seat, 24, false, newPlay(s, seat), LEVEL_WEIGHT),
+  'model3-new': (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? newPlay(s, seat),
+  model3: (s, seat) => hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? learnedPlay(s, seat),
   'live-new': (s, seat) =>
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 64, false, newPlay(s, seat), LEVEL_WEIGHT)),
   // The live extra rules with the model in place of the search (fast enough for ~1000-deal tests), and each rule

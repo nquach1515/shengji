@@ -6,7 +6,7 @@
 //   npx tsx scripts/ml/bury.ts confirm <deals> <out.json> '<params-json>'...
 // DECKS=3 plays 3-deck deals.
 import { writeFileSync } from 'node:fs';
-import { botBury, botDeclare, BURY_PARAMS, BuryParams } from '../../src/game/bot';
+import { botBury, botDeclare, buryParamsFor, BuryParams } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
@@ -14,6 +14,7 @@ import { attackerValue, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHi
 
 const nm = () => '';
 const DECKS = Number(process.env.DECKS ?? 2);
+const BURY_PARAMS = buryParamsFor(DECKS);
 
 function move(s: GameState, seat: number): string[] {
   if (decksOf(s) === 3) return hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? learnedPlay(s, seat);

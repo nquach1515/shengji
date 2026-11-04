@@ -440,9 +440,14 @@ export interface BuryParams {
   ace: number;
 }
 
-export const BURY_PARAMS: BuryParams = { len: 6, value: 2, points: 4, pair: 60, triple: 60, ace: 80 };
+// 2 decks: tuned with scripts/ml/bury.ts (best of 40 random settings, then 2,000 + 3,000 fresh duplicate deals vs the
+// old weights below: +1.52 ± 0.89 points, +2.99 ± 1.62 points-plus-levels per round). Mainly: bury point cards in
+// short suits more readily, to void suits. With 3 decks no setting beat the old weights over 2,000 deals.
+export const BURY_PARAMS: BuryParams = { len: 10, value: 1, points: 2, pair: 80, triple: 60, ace: 40 };
+export const BURY_PARAMS_3: BuryParams = { len: 6, value: 2, points: 4, pair: 60, triple: 60, ace: 80 };
+export const buryParamsFor = (decks: number) => (decks === 3 ? BURY_PARAMS_3 : BURY_PARAMS);
 
-export function botBury(s: GameState, seat: number, p: BuryParams = BURY_PARAMS): string[] {
+export function botBury(s: GameState, seat: number, p: BuryParams = buryParamsFor(decksOf(s))): string[] {
   const ctx = ctxOf(s);
   const hand = s.hands[seat];
   const counts = new Map<string, number>();
