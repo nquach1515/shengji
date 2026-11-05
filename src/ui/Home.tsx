@@ -5,7 +5,8 @@ import { Card, levelLabel } from '../game/cards';
 import { loadSavedHost } from '../net/host';
 import { Pace, Settings } from '../net/protocol';
 import type { StartMode } from './App';
-import { CardFace } from './Card';
+import { CardBack, CardFace } from './Card';
+import { Back, Felt, useDisplay } from './display';
 import { Modal } from './Modal';
 
 const FAN: Card[] = [
@@ -111,6 +112,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal', decks: 2 });
   const [rules, setRules] = useState(false);
   const [news, setNews] = useState(false);
+  const [display, setDisplay] = useState(false);
   useEffect(() => {
     if (!newsPending) return;
     newsPending = false;
@@ -281,6 +283,9 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
           <button className="link" onClick={() => setNews(true)}>
             What's new
           </button>
+          <button className="link" onClick={() => setDisplay(true)}>
+            Display
+          </button>
         </div>
         <div className="version" title={`Built ${new Date(__BUILD_TIME__).toLocaleString()}`}>
           v{__APP_VERSION__} · build {__BUILD_SHA__} ·{' '}
@@ -289,7 +294,92 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
       </div>
       <AnimatePresence>{rules && <RulesModal onClose={() => setRules(false)} />}</AnimatePresence>
       <AnimatePresence>{news && <WhatsNewModal onClose={() => setNews(false)} />}</AnimatePresence>
+      <AnimatePresence>{display && <DisplayModal onClose={() => setDisplay(false)} />}</AnimatePresence>
     </div>
+  );
+}
+
+const FELTS: { value: Felt; label: string }[] = [
+  { value: 'red', label: 'Red' },
+  { value: 'green', label: 'Green' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'charcoal', label: 'Charcoal' },
+];
+const BACKS: { value: Back; label: string }[] = [
+  { value: 'red', label: 'Red' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'green', label: 'Green' },
+  { value: 'black', label: 'Black' },
+];
+const PREVIEW: Card[] = [
+  { id: 'p1', suit: 'S', rank: 10 },
+  { id: 'p2', suit: 'H', rank: 9 },
+  { id: 'p3', suit: 'C', rank: 8 },
+  { id: 'p4', suit: 'D', rank: 7 },
+];
+
+/** Display options for this device: suit colours, card corners, table and card-back colours, motion. */
+export function DisplayModal({ onClose }: { onClose: () => void }) {
+  const { display, set } = useDisplay();
+  return (
+    <Modal onClose={onClose} className="display-opts">
+      <h2>Display</h2>
+      <div className="display-preview">
+        {PREVIEW.map((c) => (
+          <CardFace key={c.id} card={c} />
+        ))}
+        <CardBack />
+      </div>
+      <div className="opt-row">
+        <span className="label">Suits</span>
+        <Segmented
+          id="disp-suits"
+          options={[
+            { value: 2, label: 'Red & black' },
+            { value: 4, label: 'Four colours' },
+          ]}
+          value={display.fourColour ? 4 : 2}
+          onChange={(v) => set({ fourColour: v === 4 })}
+        />
+      </div>
+      <div className="opt-note">Four colours: ♦ blue and ♣ green, so no two suits look alike.</div>
+      <div className="opt-row">
+        <span className="label">Corners</span>
+        <Segmented
+          id="disp-corners"
+          options={[
+            { value: 0, label: 'Normal' },
+            { value: 1, label: 'Large' },
+          ]}
+          value={display.bigCorners ? 1 : 0}
+          onChange={(v) => set({ bigCorners: v === 1 })}
+        />
+      </div>
+      <div className="opt-row">
+        <span className="label">Table</span>
+        <Segmented id="disp-felt" options={FELTS} value={display.felt} onChange={(felt) => set({ felt })} />
+      </div>
+      <div className="opt-row">
+        <span className="label">Backs</span>
+        <Segmented id="disp-back" options={BACKS} value={display.back} onChange={(back) => set({ back })} />
+      </div>
+      <div className="opt-row">
+        <span className="label">Motion</span>
+        <Segmented
+          id="disp-motion"
+          options={[
+            { value: 0, label: 'Full' },
+            { value: 1, label: 'Reduced' },
+          ]}
+          value={display.reduceMotion ? 1 : 0}
+          onChange={(v) => set({ reduceMotion: v === 1 })}
+        />
+      </div>
+      <div className="opt-note">Saved on this device.</div>
+      <button className="btn primary" onClick={onClose}>
+        Done
+      </button>
+    </Modal>
   );
 }
 

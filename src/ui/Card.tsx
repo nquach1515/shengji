@@ -27,7 +27,8 @@ const PIPS: Record<number, [number, number][]> = {
 const COURT_ZH: Record<number, string> = { 11: '侍', 12: '后', 13: '王' };
 
 export function CardFace({ card, trump, selected, className = '', style }: Props) {
-  const cls = ['card', isRed(card) ? 'red' : '', selected ? 'selected' : '', className];
+  // suit-X lets the four-colour option recolour diamonds and clubs
+  const cls = ['card', isRed(card) ? 'red' : '', `suit-${card.suit}`, selected ? 'selected' : '', className];
   const pts = points(card);
   if (card.suit === 'J') {
     const big = card.rank === BIG_JOKER;

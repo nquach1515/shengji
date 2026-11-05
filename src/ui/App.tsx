@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'framer-motion';
 import { motion } from './motion';
+import { DisplayProvider } from './display';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { clearSavedHost, HostController, loadSavedHost, randomCode } from '../net/host';
 import { GameConnection, getClientId, LocalConnection, RemoteConnection } from '../net/client';
@@ -80,6 +81,7 @@ export function App() {
 
   return (
     <StageContext.Provider value={stage}>
+      <DisplayProvider>
       <div className="felt" />
       <div className="stage" style={{ width: stage.w, height: stage.h, transform: `scale(${stage.scale})` }}>
       <AnimatePresence mode="wait">
@@ -95,6 +97,7 @@ export function App() {
         </motion.div>
       </AnimatePresence>
       </div>
+      </DisplayProvider>
     </StageContext.Provider>
   );
 }

@@ -19,6 +19,18 @@
   --line-strong: rgba(232, 182, 76, 0.6);
   --red: #c8102e;
   --black: #15171c;
+  /* four-colour suits (Display option) */
+  --diamond: #1d63c9;
+  --club: #1b7a3c;
+  /* table felt and rail, and card backs: themed by the Display options below */
+  --felt-center: #e3202f;
+  --felt-edge: #8a0b16;
+  --felt-shade: rgba(70, 0, 8, 0.55);
+  --rail: #8e1019;
+  --rail-edge: #5e0810;
+  --watermark: rgba(70, 0, 8, 0.3);
+  --back-a: #c4142a;
+  --back-b: #7d0a17;
   --us: #f0c55b;
   --them: #f08a7a;
   --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
@@ -279,7 +291,7 @@ input { font: inherit; }
     radial-gradient(circle at 50% 50%, transparent 0 17%, rgba(246, 210, 122, 0.55) 17.5% 18.5%, transparent 19%),
     repeating-linear-gradient(45deg, rgba(246, 210, 122, 0.35) 0 1.5px, transparent 1.5px 7px),
     repeating-linear-gradient(-45deg, rgba(246, 210, 122, 0.35) 0 1.5px, transparent 1.5px 7px),
-    linear-gradient(160deg, #c4142a, #7d0a17);
+    linear-gradient(160deg, var(--back-a), var(--back-b));
   box-shadow: inset 0 0 0 calc(var(--cw) * 0.05) #fbf1dc, inset 0 0 0 calc(var(--cw) * 0.065) var(--gold), 0 4px 10px -4px rgba(0,0,0,0.7);
 }
 .card.tiny { --cw: 36px; }
@@ -332,7 +344,7 @@ input { font: inherit; }
   inset: 0;
   border-radius: 50%;
   /* the rail */
-  background: radial-gradient(ellipse 50% 50% at 50% 50%, #8e1019 85%, #5e0810 100%);
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, var(--rail) 85%, var(--rail-edge) 100%);
   box-shadow:
     0 0 0 2px #3a0a06,
     0 0 0 5px var(--gold),
@@ -347,12 +359,12 @@ input { font: inherit; }
   position: absolute;
   inset: 6%;
   border-radius: 50%;
-  background: radial-gradient(ellipse 62% 58% at 50% 45%, #e3202f 0%, var(--felt) 48%, #8a0b16 100%);
+  background: radial-gradient(ellipse 62% 58% at 50% 45%, var(--felt-center) 0%, var(--felt) 48%, var(--felt-edge) 100%);
   box-shadow:
     0 0 0 2px rgba(244, 150, 70, 0.85),
     0 0 0 3px rgba(80, 0, 8, 0.6),
     0 0 18px 2px rgba(0, 0, 0, 0.45),
-    inset 0 0 60px 6px rgba(70, 0, 8, 0.55);
+    inset 0 0 60px 6px var(--felt-shade);
 }
 .oval .watermark {
   position: absolute;
@@ -361,7 +373,7 @@ input { font: inherit; }
   place-items: center;
   font-family: var(--brush);
   font-size: min(16cqw, 22cqh, 190px);
-  color: rgba(70, 0, 8, 0.3);
+  color: var(--watermark);
   letter-spacing: 0.08em;
   pointer-events: none;
   z-index: 1;
@@ -522,7 +534,7 @@ input { font: inherit; }
 @keyframes glow { 50% { box-shadow: 0 0 0 1px var(--gold), 0 0 10px 0 rgba(232, 182, 76, 0.25); } }
 .seat-plate .nm { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .seat-plate .sub { font-size: 12px; color: var(--ink-dim); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
-.cc::before { content: ''; display: inline-block; width: 7px; height: 10px; border-radius: 1.5px; background: linear-gradient(160deg, #c4142a, #7d0a17); box-shadow: 0 0 0 1px #fbf1dc; margin-right: 5px; vertical-align: -1px; }
+.cc::before { content: ''; display: inline-block; width: 7px; height: 10px; border-radius: 1.5px; background: linear-gradient(160deg, var(--back-a), var(--back-b)); box-shadow: 0 0 0 1px #fbf1dc; margin-right: 5px; vertical-align: -1px; }
 .backs { position: relative; width: 150px; height: 56px; }
 .backs .back-slot { position: absolute; left: 50%; top: 4px; margin-left: -17px; transform-origin: 50% 160%; }
 .backs .card { --cw: 34px; }
@@ -814,3 +826,48 @@ input { font: inherit; }
 }
 .opt-note.start-at .step:disabled { opacity: 0.35; cursor: default; }
 .opt-note.start-at b { min-width: 18px; text-align: center; font-family: var(--serif); font-size: 15px; font-variant-numeric: lining-nums; }
+
+/* ---------- Display options (src/ui/display.tsx sets these attributes on <html>) ---------- */
+:root[data-felt='green'] {
+  --felt-center: #23a05a; --felt: #157540; --felt-edge: #0a4424; --felt-shade: rgba(0, 30, 12, 0.55);
+  --rail: #11562f; --rail-edge: #073a1e; --watermark: rgba(0, 40, 15, 0.3);
+}
+:root[data-felt='blue'] {
+  --felt-center: #2f74d8; --felt: #1c50a5; --felt-edge: #0d2e66; --felt-shade: rgba(0, 12, 45, 0.55);
+  --rail: #163f82; --rail-edge: #0a2550; --watermark: rgba(0, 15, 50, 0.3);
+}
+:root[data-felt='charcoal'] {
+  --felt-center: #545a64; --felt: #3a3e46; --felt-edge: #1e2126; --felt-shade: rgba(0, 0, 0, 0.55);
+  --rail: #2c2f35; --rail-edge: #16181c; --watermark: rgba(0, 0, 0, 0.3);
+}
+:root[data-back='blue'] { --back-a: #2560c4; --back-b: #0f2d66; }
+:root[data-back='green'] { --back-a: #23874f; --back-b: #0d4527; }
+:root[data-back='black'] { --back-a: #3d4049; --back-b: #121317; }
+
+/* four-colour suits: ♦ blue, ♣ green (♠ black, ♥ red as usual) */
+:root[data-suits='4'] .card.suit-D, :root[data-suits='4'] .suit-D.medallion, :root[data-suits='4'] .suit-D.void,
+:root[data-suits='4'] .splash .big.suit-D { color: var(--diamond); }
+:root[data-suits='4'] .card.suit-C, :root[data-suits='4'] .suit-C.medallion, :root[data-suits='4'] .suit-C.void,
+:root[data-suits='4'] .splash .big.suit-C { color: var(--club); }
+
+/* large card corners: bigger rank and suit in each corner */
+:root[data-corners='large'] .card .corner { width: 27%; }
+:root[data-corners='large'] .card .corner .r { font-size: calc(var(--cw) * 0.31); }
+:root[data-corners='large'] .card .corner .s { font-size: calc(var(--cw) * 0.23); margin-top: 1px; }
+
+/* reduced motion: no decorative CSS animation (the spinner keeps turning: it shows something is happening) */
+:root[data-motion='reduced'] *:not(.spinner), :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important;
+}
+
+/* the Display dialog */
+.modal.display-opts { text-align: left; align-items: stretch; width: min(560px, 100%); }
+.modal.display-opts h2 { text-align: center; }
+.modal.display-opts .opt-note { padding-left: 0; margin-top: -8px; }
+.modal.display-opts .btn.primary { align-self: center; }
+.display-preview {
+  display: flex; justify-content: center; gap: 8px; padding: 16px 12px; border-radius: 16px;
+  background: radial-gradient(ellipse 70% 80% at 50% 45%, var(--felt-center) 0%, var(--felt) 55%, var(--felt-edge) 100%);
+  box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px var(--gold-lo);
+}
+.display-preview .card { --cw: 52px; }

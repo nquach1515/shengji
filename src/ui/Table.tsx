@@ -8,7 +8,7 @@ import { Action, PlayerView, SeatView } from '../net/protocol';
 import { CardBack, CardFace } from './Card';
 import { Avatar, copyText, Pos, posOf, sideOf, towards } from './common';
 import { Hand } from './Hand';
-import { RulesModal } from './Home';
+import { DisplayModal, RulesModal } from './Home';
 import { NetBadge } from './Lobby';
 import { Modal } from './Modal';
 import { useStage } from './stage';
@@ -50,6 +50,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showLast, setShowLast] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showDisplay, setShowDisplay] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const size = useSize(wrapRef);
   const name = (seat: number) => (seat === view.you ? 'You' : view.seats[seat]?.name ?? `Seat ${seat + 1}`);
@@ -118,7 +119,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
 
   return (
     <div className="game">
-      <Hud view={view} onLast={() => setShowLast(true)} onRules={() => setShowRules(true)} onLeave={onLeave} send={send} />
+      <Hud view={view} onLast={() => setShowLast(true)} onRules={() => setShowRules(true)} onDisplay={() => setShowDisplay(true)} onLeave={onLeave} send={send} />
       {view.online && netState !== 'online' && (
         <div className="conn-banner">
           <NetBadge state={netState} detail={netDetail} />
@@ -177,6 +178,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
 
       <AnimatePresence>
         {showRules && <RulesModal onClose={() => setShowRules(false)} />}
+        {showDisplay && <DisplayModal onClose={() => setShowDisplay(false)} />}
         {showLast && view.tricks.length > 0 && (
           <TrickHistory view={view} name={name} onClose={() => setShowLast(false)} />
         )}
@@ -194,12 +196,14 @@ function Hud({
   view,
   onLast,
   onRules,
+  onDisplay,
   onLeave,
   send,
 }: {
   view: PlayerView;
   onLast: () => void;
   onRules: () => void;
+  onDisplay: () => void;
   onLeave: () => void;
   send: (a: Action) => void;
 }) {
@@ -256,7 +260,7 @@ function Hud({
         <motion.div className="plate trump-pill" layout>
           <motion.div
             key={String(view.trumpSuit)}
-            className={`medallion ${redSuit(view.trumpSuit) ? 'red' : ''}`}
+            className={`medallion ${redSuit(view.trumpSuit) ? 'red' : ''} suit-${view.trumpSuit}`}
             initial={{ scale: 0.3, rotate: -90 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 14 }}
@@ -353,6 +357,9 @@ function Hud({
                 )}
                 <button className="btn ghost small" onClick={() => (onRules(), setMenu(false))}>
                   How to play
+                </button>
+                <button className="btn ghost small" onClick={() => (onDisplay(), setMenu(false))}>
+                  Display
                 </button>
                 <button className="btn ghost small" onClick={onLeave}>
                   Leave table
@@ -675,7 +682,7 @@ function DeclareSplash({ view, name }: { view: PlayerView; name: (s: number) => 
           exit={{ opacity: 0, scale: 1.4 }}
           transition={{ type: 'spring', stiffness: 260, damping: 16 }}
         >
-          <div className={`big ${redSuit(d.suit) ? 'red' : ''}`}>{trumpGlyph(d.suit)}</div>
+          <div className={`big ${redSuit(d.suit) ? 'red' : ''} suit-${d.suit}`}>{trumpGlyph(d.suit)}</div>
           <div className="cap">
             {name(d.seat)} {lockedIn(d.strength, view.rules.decks) ? 'locked in' : 'declared'} {d.suit === 'NT' ? 'no trump' : SUIT_NAME[d.suit]}
           </div>
@@ -1239,7 +1246,7 @@ function Voids({ voids, inline }: { voids: string[]; inline?: boolean }) {
         {sorted.map((v) => (
           <motion.span
             key={v}
-            className={`void ${v === 'H' || v === 'D' ? 'red' : ''} ${v === 'T' ? 'zh' : ''}`}
+            className={`void ${v === 'H' || v === 'D' ? 'red' : ''} ${v === 'T' ? 'zh' : ''} suit-${v}`}
             title={`Out of ${SUIT_WORD[v]}`}
             initial={{ scale: 0, rotate: -90 }}
             animate={{ scale: 1, rotate: 0 }}
