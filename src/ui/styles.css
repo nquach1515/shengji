@@ -850,15 +850,20 @@ input { font: inherit; }
 :root[data-suits='4'] .card.suit-C, :root[data-suits='4'] .suit-C.medallion, :root[data-suits='4'] .suit-C.void,
 :root[data-suits='4'] .splash .big.suit-C { color: var(--club); }
 
-/* large card corners: bigger rank and suit in each corner */
-:root[data-corners='large'] .card .corner { width: 27%; }
-:root[data-corners='large'] .card .corner .r { font-size: calc(var(--cw) * 0.31); }
-:root[data-corners='large'] .card .corner .s { font-size: calc(var(--cw) * 0.23); margin-top: 1px; }
-
-/* reduced motion: no decorative CSS animation (the spinner keeps turning: it shows something is happening) */
-:root[data-motion='reduced'] *:not(.spinner), :root[data-motion='reduced'] *::before, :root[data-motion='reduced'] *::after {
-  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important;
+/* large index: a big rank and suit in two corners and one large suit symbol in the middle (no pips or court
+   picture for the index to run into); jokers and aces keep their own faces */
+.card .jumbo { display: none; }
+:root[data-corners='large'] .card .pips, :root[data-corners='large'] .card .court { display: none; }
+:root[data-corners='large'] .card .jumbo {
+  display: grid; place-items: center; position: absolute; inset: 0;
+  font-size: calc(var(--cw) * 0.42); line-height: 1; padding-bottom: 6%; opacity: 0.9;
 }
+/* the trump badge moves below the taller index, still inside the strip that shows when cards are fanned */
+:root[data-corners='large'] .card .zhu { top: 46%; }
+:root[data-corners='large'] .card .corner { width: 32%; top: 3%; left: 4%; line-height: 0.85; }
+:root[data-corners='large'] .card .corner.br { top: auto; left: auto; bottom: 3%; right: 4%; }
+:root[data-corners='large'] .card .corner .r { font-size: calc(var(--cw) * 0.36); letter-spacing: -0.09em; }
+:root[data-corners='large'] .card .corner .s { font-size: calc(var(--cw) * 0.27); margin-top: 1px; }
 
 /* the Display dialog */
 .modal.display-opts { text-align: left; align-items: stretch; width: min(560px, 100%); }

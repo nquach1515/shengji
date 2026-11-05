@@ -1,8 +1,7 @@
 /*
- * Display options: four-colour suits, large card corners, table and card-back colours, reduced motion. Saved on this
+ * Display options: four-colour suits, large card indexes, table and card-back colours. Saved on this
  * device and applied as data attributes on <html> (styles.css does the rest), so they never touch the game itself.
  */
-import { MotionConfig } from 'framer-motion';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 export type Felt = 'red' | 'green' | 'blue' | 'charcoal';
@@ -11,14 +10,14 @@ export type Back = 'red' | 'blue' | 'green' | 'black';
 export interface Display {
   /** ♦ blue and ♣ green, so no two suits share a colour */
   fourColour: boolean;
+  /** jumbo index: a big rank and suit in the corners and one large suit symbol in the middle */
   bigCorners: boolean;
   felt: Felt;
   back: Back;
-  reduceMotion: boolean;
 }
 
 const KEY = 'sj-display';
-const DEFAULTS: Display = { fourColour: false, bigCorners: false, felt: 'red', back: 'red', reduceMotion: false };
+const DEFAULTS: Display = { fourColour: false, bigCorners: false, felt: 'red', back: 'red' };
 
 function load(): Display {
   try {
@@ -34,7 +33,6 @@ function apply(d: Display) {
   el.corners = d.bigCorners ? 'large' : 'normal';
   el.felt = d.felt;
   el.back = d.back;
-  el.motion = d.reduceMotion ? 'reduced' : 'full';
 }
 
 // applied before the first render, so the page never shows the default colours first
@@ -57,8 +55,7 @@ export function DisplayProvider({ children }: { children: ReactNode }) {
   }, [display]);
   return (
     <DisplayContext.Provider value={{ display, set: (patch) => setDisplay((d) => ({ ...d, ...patch })) }}>
-      {/* "always": no movement or scaling, fades only; otherwise follow the device's own reduce-motion setting */}
-      <MotionConfig reducedMotion={display.reduceMotion ? 'always' : 'user'}>{children}</MotionConfig>
+      {children}
     </DisplayContext.Provider>
   );
 }

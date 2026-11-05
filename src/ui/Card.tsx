@@ -81,6 +81,7 @@ export function CardFace({ card, trump, selected, className = '', style }: Props
         <span className="s">{glyph}</span>
       </div>
       {center}
+      {card.rank !== 14 && <div className="jumbo">{glyph}</div>}
       <div className="corner br">
         <span className="r">{label}</span>
         <span className="s">{glyph}</span>

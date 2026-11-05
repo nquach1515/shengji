@@ -339,7 +339,7 @@ const PREVIEW: Card[] = [
   { id: 'p4', suit: 'D', rank: 7 },
 ];
 
-/** Display options for this device: suit colours, card corners, table and card-back colours, motion. */
+/** Display options for this device: suit colours, card index size, table and card-back colours. */
 export function DisplayModal({ onClose }: { onClose: () => void }) {
   const { display, set } = useDisplay();
   return (
@@ -365,17 +365,18 @@ export function DisplayModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="opt-note">Four colours: ♦ blue and ♣ green, so no two suits look alike.</div>
       <div className="opt-row">
-        <span className="label">Corners</span>
+        <span className="label">Cards</span>
         <Segmented
           id="disp-corners"
           options={[
-            { value: 0, label: 'Normal' },
-            { value: 1, label: 'Large' },
+            { value: 0, label: 'Classic' },
+            { value: 1, label: 'Large index' },
           ]}
           value={display.bigCorners ? 1 : 0}
           onChange={(v) => set({ bigCorners: v === 1 })}
         />
       </div>
+      <div className="opt-note">Large index: a big rank and suit in each corner and one suit symbol in the middle.</div>
       <div className="opt-row">
         <span className="label">Table</span>
         <Segmented id="disp-felt" options={FELTS} value={display.felt} onChange={(felt) => set({ felt })} />
@@ -383,18 +384,6 @@ export function DisplayModal({ onClose }: { onClose: () => void }) {
       <div className="opt-row">
         <span className="label">Backs</span>
         <Segmented id="disp-back" options={BACKS} value={display.back} onChange={(back) => set({ back })} />
-      </div>
-      <div className="opt-row">
-        <span className="label">Motion</span>
-        <Segmented
-          id="disp-motion"
-          options={[
-            { value: 0, label: 'Full' },
-            { value: 1, label: 'Reduced' },
-          ]}
-          value={display.reduceMotion ? 1 : 0}
-          onChange={(v) => set({ reduceMotion: v === 1 })}
-        />
       </div>
       <div className="opt-note">Saved on this device.</div>
       <button className="btn primary" onClick={onClose}>
@@ -426,8 +415,8 @@ export function WhatsNewModal({ onClose }: { onClose: () => void }) {
       <h2>What's new in v{__APP_VERSION__}</h2>
       <h3>Display options</h3>
       <ul>
-        <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and larger card corners — easier to read on a phone.</li>
-        <li>Pick the table colour (red, green, blue, charcoal) and card backs, or reduce motion. Find it under Display on the home screen or in the ⋯ menu.</li>
+        <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and a large-index card style — easier to read on a phone.</li>
+        <li>Pick the table colour (red, green, blue, charcoal) and card backs. Find it under Display on the home screen or in the ⋯ menu.</li>
       </ul>
       <h3>Bot difficulty</h3>
       <ul>
