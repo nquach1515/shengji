@@ -12,6 +12,7 @@ import { botPlay, candidates, keepTriples } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
 import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
 import { cardValue, decompose, effSuit, isTrump, trickWinner, validateFollow } from './rules';
+import { playReader, ReadParams } from './inference';
 import { knownLocations } from './info';
 
 const noName = () => '';
@@ -154,11 +155,44 @@ export function rollout(d: GameState, seat: number, move: string[], levelWeight 
 }
 
 /**
+ * Picks among `options` from paired playout results. Starting from `start` (the prior), an alternative must beat
+ * the current best by `margin(se)`. With `logw` (from reading the other players' play) each sampled deal counts in
+ * proportion to its likelihood, and the standard error uses the effective number of deals.
+ */
+function choose(scores: number[][], start: number, margin: (se: number) => number, logw?: number[]): number {
+  const n = scores[0].length;
+  let w: number[] | null = null;
+  if (logw && logw.length === n) {
+    const top = Math.max(...logw);
+    w = logw.map((x) => Math.exp(x - top));
+  }
+  let best = start;
+  for (let i = 0; i < scores.length; i++) {
+    if (i === best) continue;
+    const diff = scores[i].map((x, k) => x - scores[best][k]);
+    let m: number;
+    let se: number;
+    if (!w) {
+      m = diff.reduce((t, x) => t + x, 0) / n;
+      se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, n - 1) / n);
+    } else {
+      const sw = w.reduce((t, x) => t + x, 0);
+      m = diff.reduce((t, x, k) => t + w![k] * x, 0) / sw;
+      const v = diff.reduce((t, x, k) => t + w![k] * (x - m) ** 2, 0) / sw;
+      const ess = sw ** 2 / w.reduce((t, x) => t + x * x, 0);
+      se = Math.sqrt(v / Math.max(1, ess - 1));
+    }
+    if (m > margin(se)) best = i;
+  }
+  return best;
+}
+
+/**
  * The search bot's move. `prior` is the move to keep unless the search finds a clearly better one (defaults to the
  * heuristic bot's choice). "Clearly better" is judged on paired results over the same sampled deals: the
  * alternative must win by more than 1.5 standard errors of the difference, so noise alone won't overturn the prior.
  */
-export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[], levelWeight = 0): string[] {
+export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[], levelWeight = 0, read?: ReadParams): string[] {
   if (leadsOnly && s.trick!.plays.length > 0) return prior ?? botPlay(s, seat);
   const options = moveOptions(s, seat);
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
@@ -174,16 +208,10 @@ export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly =
   try {
     const deals = Array.from({ length: samples }, () => determinize(s, seat));
     const scores = options.map((m) => deals.map((d) => rollout(cloneState(d), seat, m, levelWeight)));
-    const mean = (xs: number[]) => xs.reduce((t, x) => t + x, 0) / xs.length;
-    let best = start;
-    for (let i = 0; i < options.length; i++) {
-      if (i === best) continue;
-      const diff = scores[i].map((x, k) => x - scores[best][k]);
-      const m = mean(diff);
-      const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, diff.length - 1) / diff.length);
-      // Hints (with a prior) need a significant win; the bots keep the simple margin they were tested with.
-      if (m > (prior ? Math.max(0.5, 1.5 * se) : 0.5)) best = i;
-    }
+    const reader = playReader(s, seat, read);
+    const logw = reader ? deals.map(reader) : undefined;
+    // Hints (with a prior) need a significant win; the bots keep the simple margin they were tested with.
+    const best = choose(scores, start, (se) => (prior ? Math.max(0.5, 1.5 * se) : 0.5), logw);
     return options[best];
   } catch {
     return options[start];
@@ -203,6 +231,7 @@ export function searchPlayTimed(
   minSamples = 16,
   maxSamples = 400,
   levelWeight = 0,
+  read?: ReadParams,
 ): string[] {
   const options = moveOptions(s, seat);
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
@@ -217,23 +246,21 @@ export function searchPlayTimed(
   if (options.length === 1) return options[0];
   const t0 = Date.now();
   const scores: number[][] = options.map(() => []);
+  const reader = playReader(s, seat, read);
+  const logw: number[] = [];
   try {
     while (scores[0].length < maxSamples && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
       const d = determinize(s, seat);
+      const lw = reader ? reader(d) : 0;
       options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
+      logw.push(lw);
     }
   } catch {
     if (scores[0].length < minSamples) return options[start];
   }
-  const mean = (xs: number[]) => xs.reduce((t, x) => t + x, 0) / xs.length;
-  let best = start;
-  for (let i = 0; i < options.length; i++) {
-    if (i === best) continue;
-    const diff = scores[i].map((x, k) => x - scores[best][k]);
-    const m = mean(diff);
-    const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, diff.length - 1) / diff.length);
-    if (m > Math.max(0.5, 1.5 * se)) best = i;
-  }
+  const n = Math.min(...scores.map((x) => x.length));
+  for (const x of scores) x.length = n;
+  const best = choose(scores, start, (se) => Math.max(0.5, 1.5 * se), reader ? logw.slice(0, n) : undefined);
   return options[best];
 }
 

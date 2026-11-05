@@ -8,6 +8,7 @@ import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, n
 import { decisionContext, moveFeatures } from '../src/game/features';
 import { redactFor } from '../src/game/info';
 import { determinize, moveOptions, searchPlay } from '../src/game/search';
+import { READ_PARAMS } from '../src/game/inference';
 import { learnedPlay } from '../src/game/policy';
 
 const nm = () => '';
@@ -66,6 +67,9 @@ for (let g = 0; g < games; g++) {
       checks.search++;
       const m = searchPlay(redactFor(s, seat), seat, 8);
       if (!m.length) leaks.push('search failed on redacted state');
+      // reading the other players' play must also work from the redacted state alone
+      const r = searchPlay(redactFor(s, seat), seat, 8, false, undefined, 0, READ_PARAMS);
+      if (!r.length) leaks.push('search with play reading failed on redacted state');
     }
     play(s, seat, real, nm);
     if (s.trick!.winner !== null) collectTrick(s, nm);
