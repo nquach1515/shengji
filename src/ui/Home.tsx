@@ -63,6 +63,12 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const [err, setErr] = useState('');
   const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal', decks: 2 });
   const [rules, setRules] = useState(false);
+  const [news, setNews] = useState(false);
+  useEffect(() => {
+    if (!newsPending) return;
+    newsPending = false;
+    setNews(true);
+  }, []);
   const inviteCode = /^[a-z]{4}$/i.test(urlCode) ? urlCode.toUpperCase() : '';
   const [showInvite, setShowInvite] = useState(!!inviteCode);
 
@@ -231,16 +237,72 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
           </motion.div>
         </div>
 
-        <button className="link" onClick={() => setRules(true)}>
-          How to play
-        </button>
+        <div className="links">
+          <button className="link" onClick={() => setRules(true)}>
+            How to play
+          </button>
+          <button className="link" onClick={() => setNews(true)}>
+            What's new
+          </button>
+        </div>
         <div className="version" title={`Built ${new Date(__BUILD_TIME__).toLocaleString()}`}>
           v{__APP_VERSION__} · build {__BUILD_SHA__} ·{' '}
           {new Date(__BUILD_TIME__).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
       </div>
       <AnimatePresence>{rules && <RulesModal onClose={() => setRules(false)} />}</AnimatePresence>
+      <AnimatePresence>{news && <WhatsNewModal onClose={() => setNews(false)} />}</AnimatePresence>
     </div>
+  );
+}
+
+const SEEN_VERSION_KEY = 'sj-seen-version';
+
+/** Show "What's new" once per version to people who have played before (a brand-new player has no client id yet). */
+function shouldShowWhatsNew(): boolean {
+  try {
+    const seen = localStorage.getItem(SEEN_VERSION_KEY);
+    localStorage.setItem(SEEN_VERSION_KEY, __APP_VERSION__);
+    return seen !== __APP_VERSION__ && localStorage.getItem('sj-client-id') !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Decided once per page load; the home screen opens the card the first time it appears. */
+let newsPending = shouldShowWhatsNew();
+
+export function WhatsNewModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal onClose={onClose} className="rules">
+      <h2>What's new in v{__APP_VERSION__}</h2>
+      <h3>Play with 3 decks</h3>
+      <ul>
+        <li>Pick 2 or 3 decks when you set up a game: 38 cards each, a 10-card kitty, and 120 of 300 points takes the deal.</li>
+        <li>Triples and triple tractors: answer a triple with a triple (or a pair if you have none). You never have to split a triple to answer a pair.</li>
+        <li>A triple declaration beats any pair, and no trump takes three of the same joker.</li>
+      </ul>
+      <h3>Online play</h3>
+      <ul>
+        <li>Games connect through a relay server, so they work through VPNs and many networks that used to block them.</li>
+      </ul>
+      <h3>Smarter bots and hints</h3>
+      <ul>
+        <li>Retrained bots for 2 decks and a new model trained for 3 decks.</li>
+        <li>They no longer put points on a trick the opponents will probably take, lead point cards that can be beaten, or hold back an ace and let the other one win.</li>
+        <li>They keep triples together, throw their cheapest cards when they can't win, and read your hands better.</li>
+        <li>Bots wait until two thirds of the deck is dealt before declaring, so you get a fair chance to declare first.</li>
+      </ul>
+      <h3>Look and feel</h3>
+      <ul>
+        <li>Your hand always alternates red and black suits.</li>
+        <li>Clearer blocked-throw popup that stays up longer, level badges no longer cut off, declared cards stay on screen on phones.</li>
+        <li>The kitty bonus is always ×2 when the attackers win the last trick.</li>
+      </ul>
+      <button className="btn primary" onClick={onClose}>
+        Let's play
+      </button>
+    </Modal>
   );
 }
 

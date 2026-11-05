@@ -806,3 +806,6 @@ input { font: inherit; }
 .seat.right .voids-anchor { left: auto; right: 0; transform: none; }
 .seat.left .decl-anchor { left: 0; transform: none; }
 .seat.right .decl-anchor { left: auto; right: 0; transform: none; }
+
+/* How to play · What's new */
+.links { display: flex; gap: 18px; justify-content: center; }
