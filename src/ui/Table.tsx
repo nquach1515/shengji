@@ -731,7 +731,8 @@ function Toasts({ view }: { view: PlayerView }) {
     if (!view.error || errId === firstErr.current) return;
     const item = { id: `x${errId}`, kind: 'throwFail', text: view.error.text };
     setItems((xs) => [...xs, item].slice(-3));
-    setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== item.id)), 2800);
+    // errors like a blocked throw stay up longer than routine messages, so there's time to read them
+    setTimeout(() => setItems((xs) => xs.filter((x) => x.id !== item.id)), 4500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errId]);
   return (
@@ -1263,7 +1264,7 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
     if (!latest || latest.id <= seen.current) return;
     seen.current = latest.id;
     setShown(latest);
-    const t = setTimeout(() => setShown(null), 2600);
+    const t = setTimeout(() => setShown(null), 4500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestId]);

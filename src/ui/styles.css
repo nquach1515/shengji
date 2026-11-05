@@ -661,9 +661,11 @@ input { font: inherit; }
 .throw-splash { padding: 14px 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-color: rgba(255, 140, 120, 0.7); }
 .throw-splash .t { font-family: var(--serif); font-weight: 800; font-size: 22px; color: #ffd2c8; }
 .throw-splash .s { font-size: 13px; color: var(--ink-dim); }
-.throw-splash .cards { display: flex; margin-top: 4px; }
-.throw-splash .cards .card { --cw: 66px; }
-.throw-splash .cards .card + .card { margin-left: -28px; }
+/* side by side, not overlapped: overlapping face cards showed one card's big letter beside the next card's */
+.throw-splash .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; width: max-content; max-width: min(320px, 80cqw); }
+.throw-splash .cards .card { --cw: 58px; }
+/* .splash .big styles the declare splash's big suit glyph; a court card's big letter here keeps its own look */
+.splash .card .big { color: inherit; filter: none; }
 
 /* trick history */
 .modal.history { width: min(820px, 100%); max-height: calc(100cqh - 48px); }

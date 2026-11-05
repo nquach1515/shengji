@@ -17,7 +17,7 @@ import {
   rulesFor,
   startRound,
 } from '../src/game/engine';
-import { checkThrow, validateFollow, cardValue, decompose, trickWinner, TrumpCtx } from '../src/game/rules';
+import { checkThrow, validateFollow, cardValue, decompose, effSuit, sortHand, trickWinner, TrumpCtx } from '../src/game/rules';
 import { Card } from '../src/game/cards';
 
 const names = (s: number) => `P${s}`;
@@ -357,6 +357,26 @@ assert(forced2 !== null && forced2.kind === 'single', 'throw fails on the K sing
   g.trick = { leader: 0, plays: [], winner: null, points: 0 };
   g.turn = 0;
   assert(noUnderlead(redactFor(g, 0), 0, ['0D6'])[0] === '0D14', 'leads the A♦ rather than underleading it');
+}
+// Bots don't declare before two thirds of the deck is dealt
+for (const decks of [2, 3]) {
+  const g = newGame(2, decks);
+  startRound(g);
+  let firstDeclare: number | null = null;
+  const toDeal = g.deck.length;
+  while (g.phase === 'dealing') {
+    const seat = dealOne(g, 0);
+    const o = botDeclare(redactFor(g, seat), seat);
+    if (o && firstDeclare === null) firstDeclare = toDeal - g.deck.length;
+    if (o) declare(g, seat, o.cardIds);
+  }
+  assert(firstDeclare === null || 3 * firstDeclare >= 2 * toDeal, `${decks} decks: a bot declared after only ${firstDeclare} of ${toDeal} cards`);
+}
+// hand order: side suits alternate colour, trump last
+{
+  const hand = [C('S', 3), C('C', 5), C('D', 7), C('S', 9), C('C', 11), C('D', 12), C('H', 4)];
+  const order = [...new Set(sortHand(hand, { suit: 'H', rank: 2 }).map((c) => effSuit(c, { suit: 'H', rank: 2 })))];
+  assert(order.join() === 'S,D,C,T', `hearts trump: spades, diamonds, clubs, then trump (got ${order})`);
 }
 console.log('rule checks passed');
 

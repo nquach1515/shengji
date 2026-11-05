@@ -291,11 +291,28 @@ export function trickWinner(plays: PlayLike[], ctx: TrumpCtx): number {
 
 const SUIT_ORDER: Suit[] = ['S', 'H', 'C', 'D'];
 
-/** Hand order: non-trump suits alternating colour, then trumps (strongest on the right). */
+/**
+ * Side suits in the order shown: red and black alternate whichever suits are present (black red black red, or
+ * red black red when there are more reds), so neighbouring suits are easy to tell apart.
+ */
+function alternatingSuits(present: Suit[]): Suit[] {
+  const blacks = present.filter((x) => x === 'S' || x === 'C');
+  const reds = present.filter((x) => x === 'H' || x === 'D');
+  const [first, second] = reds.length > blacks.length ? [reds, blacks] : [blacks, reds];
+  const out: Suit[] = [];
+  for (let i = 0; i < Math.max(first.length, second.length); i++) {
+    if (first[i]) out.push(first[i]);
+    if (second[i]) out.push(second[i]);
+  }
+  return out;
+}
+
+/** Hand order: side suits alternating colour, then trumps (strongest on the right). */
 export function sortHand(cards: Card[], ctx: TrumpCtx): Card[] {
+  const order = alternatingSuits(SUIT_ORDER.filter((x) => cards.some((c) => effSuit(c, ctx) === x)));
   const groupOf = (c: Card) => {
     const s = effSuit(c, ctx);
-    return s === 'T' ? 10 : SUIT_ORDER.indexOf(s);
+    return s === 'T' ? 10 : order.indexOf(s);
   };
   return cards.slice().sort(
     (a, b) =>

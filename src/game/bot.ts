@@ -490,7 +490,10 @@ export interface DeclareParams {
   lateTh: number;
 }
 
-/** Current settings (see scripts/ml/declare.ts for how they're tuned). */
+/**
+ * Current settings (see scripts/ml/declare.ts for how they're tuned). On top of these, botDeclare waits until two
+ * thirds of the deck is dealt (user's choice), which is later than either minDealt.
+ */
 export const DECLARE_PARAMS: DeclareParams = {
   // waits for 13 cards and may use the last-chance window: ~0.35 pts/round weaker than declaring from 7 cards,
   // but bots no longer declare on a handful of cards (user's choice)
@@ -533,6 +536,9 @@ export function botDeclare(s: GameState, seat: number, p: DeclareParams = declar
   const hand = s.hands[seat];
   const dealt = hand.length;
   if (dealt < p.minDealt) return null;
+  // bots never declare before two thirds of the deck has been dealt (about 17 cards each with 2 decks, 26 with 3)
+  const toDeal = 54 * decksOf(s) - rulesOf(s).kitty;
+  if (3 * (toDeal - s.deck.length) < 2 * toDeal) return null;
   const jokers = hand.filter((c) => c.suit === 'J').length;
   const rankCards = hand.filter((c) => c.rank === s.trumpRank).length;
   const scored = opts.map((o) => {
