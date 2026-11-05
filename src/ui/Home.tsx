@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { Card } from '../game/cards';
+import { Card, levelLabel } from '../game/cards';
 import { loadSavedHost } from '../net/host';
 import { Pace, Settings } from '../net/protocol';
 import type { StartMode } from './App';
@@ -24,6 +24,52 @@ export const DECK_OPTIONS: { decks: number; label: string; note: string }[] = [
   { decks: 2, label: '2 decks', note: '25 cards each · 8-card kitty · 80 to win' },
   { decks: 3, label: '3 decks', note: '38 cards each · 10-card kitty · triples · 120 to win' },
 ];
+/**
+ * Game length: the presets, or Custom to start both teams at any level from 2 to A. Shows the preset's note, or a
+ * stepper for the custom level, under the row (`note` false leaves the note out).
+ */
+export function LengthPicker({ id, value, onChange, note = true }: { id: string; value: number; onChange: (level: number) => void; note?: boolean }) {
+  const preset = LENGTHS.find((l) => l.level === value);
+  const [custom, setCustom] = useState(!preset);
+  return (
+    <>
+      <div className="opt-row">
+        <span className="label">Length</span>
+        <Segmented
+          id={id}
+          options={[...LENGTHS.map((l) => ({ value: l.level, label: l.label })), { value: 0, label: 'Custom' }]}
+          value={custom ? 0 : value}
+          onChange={(v) => {
+            setCustom(v === 0);
+            if (v !== 0) onChange(v);
+          }}
+        />
+      </div>
+      {custom ? (
+        <div className="opt-row">
+          <span className="label">Start</span>
+          <div className="stepper">
+            <button className="btn small" aria-label="Lower start level" disabled={value <= 2} onClick={() => onChange(value - 1)}>
+              −
+            </button>
+            <span className="lvl">{levelLabel(value)}</span>
+            <button className="btn small" aria-label="Higher start level" disabled={value >= 14} onClick={() => onChange(value + 1)}>
+              +
+            </button>
+          </div>
+        </div>
+      ) : (
+        note && preset && <div className="opt-note">{preset.note}</div>
+      )}
+    </>
+  );
+}
+
+/** "Classic", "Shorter", "Quick", or "Starts at 5" for a custom level. */
+export function lengthName(level: number) {
+  return LENGTHS.find((l) => l.level === level)?.label ?? `Starts at ${levelLabel(level)}`;
+}
+
 export const PACES: { pace: Pace; label: string }[] = [
   { pace: 'relaxed', label: 'Relaxed' },
   { pace: 'normal', label: 'Normal' },
@@ -91,7 +137,6 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
     go({ kind: 'join', code: c });
   };
 
-  const length = LENGTHS.find((l) => l.level === settings.startLevel)!;
 
   if (showInvite) {
     return (
@@ -167,16 +212,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
           >
             <h3>Play with bots</h3>
             <p>You and a bot partner against two bots.</p>
-            <div className="opt-row">
-              <span className="label">Length</span>
-              <Segmented
-                id="len"
-                options={LENGTHS.map((l) => ({ value: l.level, label: l.label }))}
-                value={settings.startLevel}
-                onChange={(startLevel) => setSettings((s) => ({ ...s, startLevel }))}
-              />
-            </div>
-            <div className="opt-note">{length.note}</div>
+            <LengthPicker id="len" value={settings.startLevel} onChange={(startLevel) => setSettings((s) => ({ ...s, startLevel }))} />
             <div className="opt-row">
               <span className="label">Decks</span>
               <Segmented

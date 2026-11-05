@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, copyText, posOf, sideOf } from './common';
-import { DECK_OPTIONS, LENGTHS, PACES, Segmented } from './Home';
+import { DECK_OPTIONS, LengthPicker, lengthName, PACES, Segmented } from './Home';
 
 const SPOT: Record<string, { left: string; top: string }> = {
   bottom: { left: '50%', top: '100%' },
@@ -134,15 +134,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
 
         {view.isHost ? (
           <div className="plate settings-row">
-            <div className="opt-row">
-              <span className="label">Length</span>
-              <Segmented
-                id="lobby-len"
-                options={LENGTHS.map((l) => ({ value: l.level, label: l.label }))}
-                value={view.settings.startLevel}
-                onChange={(startLevel) => send({ type: 'settings', settings: { startLevel } })}
-              />
-            </div>
+            <LengthPicker id="lobby-len" note={false} value={view.settings.startLevel} onChange={(startLevel) => send({ type: 'settings', settings: { startLevel } })} />
             <div className="opt-row">
               <span className="label">Decks</span>
               <Segmented
@@ -164,7 +156,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
           </div>
         ) : (
           <div className="foot">
-            {LENGTHS.find((l) => l.level === view.settings.startLevel)?.label} game · {view.rules.decks} decks · {view.settings.pace} pace
+            {lengthName(view.settings.startLevel)} · {view.rules.decks} decks · {view.settings.pace} pace
           </div>
         )}
 

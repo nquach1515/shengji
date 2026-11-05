@@ -348,6 +348,8 @@ export class HostController {
       case 'settings':
         if (!isHost) return 'Only the host can change settings';
         this.settings = { ...this.settings, ...a.settings };
+        // any level from 2 to A (custom start)
+        this.settings.startLevel = Math.min(14, Math.max(2, Math.round(Number(this.settings.startLevel)) || 2));
         if (s.phase === 'lobby') this.state = resetToLobby(s, this.settings.startLevel, this.settings.decks);
         return null;
       case 'emote':

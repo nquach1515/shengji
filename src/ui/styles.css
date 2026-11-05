@@ -13,7 +13,7 @@
   --ink: #f7ead3;
   --ink-dim: rgba(247, 234, 211, 0.66);
   --ink-faint: rgba(247, 234, 211, 0.4);
-  --plate: rgba(22, 7, 10, 0.86);
+  --plate: rgba(22, 7, 10, 0.93);
   --plate-2: rgba(40, 10, 16, 0.92);
   --line: rgba(232, 182, 76, 0.28);
   --line-strong: rgba(232, 182, 76, 0.6);
@@ -134,21 +134,20 @@ input { font: inherit; }
 .input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232, 182, 76, 0.18); }
 .input.code { text-transform: uppercase; letter-spacing: 0.4em; text-align: center; font-weight: 700; font-family: var(--caps); font-size: 18px; }
 
+/* Boxes have no backdrop blur: they fade and scale in, and browsers (iOS Safari especially) redraw the blur layer
+   every animation frame, which made each box flicker on load. Over the dark background a near-opaque fill looks
+   the same. */
 .panel {
-  background: linear-gradient(180deg, rgba(120, 16, 30, 0.55), rgba(50, 8, 14, 0.82));
+  background: linear-gradient(180deg, rgba(102, 14, 26, 0.86), rgba(46, 8, 13, 0.94));
   border: 1px solid var(--line-strong);
   border-radius: 18px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 30px 80px -30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 220, 150, 0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 .plate {
   background: var(--plate);
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 220, 150, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 .serif { font-family: var(--serif); }
 .label { font-family: var(--caps); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
@@ -708,9 +707,7 @@ input { font: inherit; }
 .voids.inline { gap: 3px; }
 .voids.inline .void { width: 15px; height: 20px; font-size: 12px; }
 
-/* iOS Safari leaves ghost outlines of removed buttons inside elements with backdrop-filter;
-   the action bar's buttons change constantly, so give it a solid background instead of a blur */
-.action-bar { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(22, 7, 10, 0.96); }
+.action-bar { background: rgba(22, 7, 10, 0.96); }
 
 /* the header divider sits under a one-row header; on phones the header wraps to two rows, so drop it */
 @container stage (max-width: 720px) {
@@ -809,3 +806,7 @@ input { font: inherit; }
 
 /* How to play · What's new */
 .links { display: flex; gap: 18px; justify-content: center; }
+/* custom start level: − A + */
+.stepper { display: inline-flex; align-items: center; gap: 10px; }
+.stepper .btn { width: 34px; padding: 4px 0; font-size: 18px; line-height: 1; }
+.stepper .lvl { min-width: 28px; text-align: center; font-family: var(--serif); font-weight: 800; font-size: 20px; color: var(--gold-hi); }
