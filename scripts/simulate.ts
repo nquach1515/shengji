@@ -1,6 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
-import { feedSafeMove, noRiskyPointLead, noRiskyPointsMove, noUnderlead, searchPlay, settledTrickMove } from '../src/game/search';
+import { feedSafeMove, noRiskyPointLead, takeLastTrickMove, noRiskyPointsMove, noUnderlead, searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
@@ -426,6 +426,27 @@ for (const decks of [2, 3]) {
   g.turn = 3;
   const m = botPlay(redactFor(g, 3), 3);
   assert(m.length === 2 && m.every((id) => id.includes('H5')), `trumps in with two of 555♥ for the 10 points (played ${m})`);
+}
+// Last to play with the big jokers: take the opponents' 10 points rather than discard (reported from a real game)
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 0;
+  g.trumpRank = 2;
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  g.hands = [[C('S', 3), C('C', 7)], [C('C', 4), C('D', 7)], [C('S', 4), C('C', 8)], [C('J', 16), C('J', 16, 1), C('H', 6), C('H', 9), C('C', 3), C('D', 4)]];
+  g.trick = {
+    leader: 0,
+    plays: [{ seat: 0, cards: [C('S', 8), C('S', 8, 1)] }, { seat: 1, cards: [C('S', 13), C('D', 3)] }, { seat: 2, cards: [C('S', 11), C('S', 12)] }],
+    winner: null,
+    points: 10,
+  };
+  g.played = g.trick.plays.flatMap((p) => p.cards);
+  g.voids = [[], ['S'], [], ['S']];
+  g.turn = 3;
+  const m = takeLastTrickMove(redactFor(g, 3), 3);
+  assert(m !== null && m.every((id) => id.includes('J16')), `last to play: trump with the big jokers for the 10 points (played ${m})`);
 }
 console.log('rule checks passed');
 

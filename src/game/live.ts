@@ -4,13 +4,15 @@
  */
 import { decksOf, GameState } from './engine';
 import { learnedPlay } from './policy';
-import { feedLikelyMove, feedSafeMove, feedTrickMove, hopelessTrickMove, keepHighCards, noRiskyPointLead, noRiskyPointsMove, noUnderlead } from './search';
+import { feedLikelyMove, feedSafeMove, feedTrickMove, takeLastTrickMove, hopelessTrickMove, keepHighCards, noRiskyPointLead, noRiskyPointsMove, noUnderlead } from './search';
 
-export function liveMove(state: GameState, seat: number, search: (prior: string[]) => string[], opts = { feedSafe: true }): string[] {
+export function liveMove(state: GameState, seat: number, search: (prior: string[]) => string[], opts = { feedSafe: true, takeLast: true }): string[] {
   const three = decksOf(state) === 3;
   const move =
     hopelessTrickMove(state, seat) ??
     feedTrickMove(state, seat) ??
+    // last to play and able to take the opponents' points: a certain gain, no simulation needed
+    (opts.takeLast ? takeLastTrickMove(state, seat) : null) ??
     // partner's winning cards can't be beaten by anyone still to play: feed points. 2 decks only: 4,000 duplicate
     // deals with 3 decks measured -0.26 ± 0.20 points/round (2 decks, 2,000 deals: +0.04 ± 0.18)
     (opts.feedSafe && !three ? feedSafeMove(state, seat) : null) ??

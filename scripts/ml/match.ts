@@ -61,7 +61,11 @@ const configs: Record<string, Policy> = {
   // adding points to a single-card trick our side will probably lose
   // the live pipeline with the model in place of the search, with and without the proven-safe feed
   'live-model': (s, seat) => liveMove(s, seat, (prior) => prior),
-  'live-model-nofeedsafe': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: false }),
+  'live-model-nofeedsafe': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: false, takeLast: true }),
+  'live-model-notakelast': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: true, takeLast: false }),
+  // the live pipeline with a short search, with and without taking a point trick when last to play
+  'live-s16': (s, seat) => liveMove(s, seat, (prior) => searchPlay(s, seat, 16, false, prior, LEVEL_WEIGHT)),
+  'live-s16-notakelast': (s, seat) => liveMove(s, seat, (prior) => searchPlay(s, seat, 16, false, prior, LEVEL_WEIGHT), { feedSafe: true, takeLast: false }),
   'model-live': (s, seat) => modelLive(s, seat, false),
   'model-live-guard': (s, seat) => modelLive(s, seat, true),
   'model-live-guard75': (s, seat) => modelLive(s, seat, true, 0.75),

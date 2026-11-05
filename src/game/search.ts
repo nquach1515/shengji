@@ -385,6 +385,27 @@ export function holdChance(s: GameState, seat: number, card: Card, leadSuit: str
 export const HOLD_THRESHOLD = 0.65;
 
 /**
+ * Last to play, the opponents are winning a trick with points, and we can beat them: the result is certain, so take
+ * it with the cheapest winning play (the heuristic's when it wins). The search can miss this: with whole-round
+ * rollouts a certain 10 points now can stay inside its noise, and the model is reluctant to spend e.g. big jokers.
+ */
+export function takeLastTrickMove(s: GameState, seat: number): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length !== 3 || trick.points === 0) return null;
+  const ctx = ctxOf(s);
+  if (trickWinner(trick.plays, ctx) % 2 === seat % 2) return null;
+  const hand = s.hands[seat];
+  const cardsOf = (m: string[]) => hand.filter((c) => m.includes(c.id));
+  const wins = (m: string[]) => trickWinner([...trick.plays, { seat, cards: cardsOf(m) }], ctx) === seat;
+  const winning = moveOptions(s, seat).filter(wins);
+  if (winning.length === 0) return null;
+  const heuristic = botPlay(s, seat);
+  if (wins(heuristic)) return heuristic;
+  const cost = (m: string[]) => cardsOf(m).reduce((t, c) => t + cardValue(c, ctx) + (isTrump(c, ctx) ? 20 : 0) - points(c) * 2, 0);
+  return winning.sort((a, b) => cost(a) - cost(b))[0];
+}
+
+/**
  * Partner is winning and no opponent still to play can possibly beat it: feed the most points we can spare. "Can't
  * beat" is proven, not guessed: for each later opponent, no combination of the needed shape that ranks higher is
  * still unseen, or they've shown they're out of the suit or have no pairs (triples) left in it (GameState.maxCopies);
