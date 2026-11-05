@@ -7,7 +7,7 @@ import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, Gam
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
-import { liveMove } from '../../src/game/live';
+import { easyMove, liveMove } from '../../src/game/live';
 import { READ_PARAMS } from '../../src/game/inference';
 import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
 
@@ -61,6 +61,8 @@ const configs: Record<string, Policy> = {
   // adding points to a single-card trick our side will probably lose
   // the live pipeline with the model in place of the search, with and without the proven-safe feed
   'live-model': (s, seat) => liveMove(s, seat, (prior) => prior),
+  // Easy bots (difficulty setting)
+  easy: (s, seat) => easyMove(s, seat),
   'live-model-nofeedsafe': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: false, takeLast: true }),
   'live-model-notakelast': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: true, takeLast: false }),
   // the live pipeline with a short search, with and without taking a point trick when last to play

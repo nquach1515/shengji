@@ -3,7 +3,7 @@ import { motion } from './motion';
 import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, copyText, posOf, sideOf } from './common';
-import { DECK_OPTIONS, LengthPicker, lengthName, PACES, Segmented } from './Home';
+import { DECK_OPTIONS, DifficultyPicker, LengthPicker, lengthName, PACES, Segmented } from './Home';
 
 const SPOT: Record<string, { left: string; top: string }> = {
   bottom: { left: '50%', top: '100%' },
@@ -145,6 +145,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                 onChange={(decks) => send({ type: 'settings', settings: { decks } })}
               />
             </div>
+            <DifficultyPicker id="lobby-diff" value={view.settings.difficulty ?? 'hard'} onChange={(difficulty) => send({ type: 'settings', settings: { difficulty } })} />
             <div className="opt-row">
               <span className="label">Pace</span>
               <Segmented
@@ -157,7 +158,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
           </div>
         ) : (
           <div className="foot">
-            {lengthName(view.settings.startLevel)} · {view.rules.decks} decks · {view.settings.pace} pace
+            {lengthName(view.settings.startLevel)} · {view.rules.decks} decks · {view.settings.difficulty ?? 'hard'} bots · {view.settings.pace} pace
           </div>
         )}
 

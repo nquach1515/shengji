@@ -1122,6 +1122,7 @@ function RoundEnd({ view, send }: { view: PlayerView; send: (a: Action) => void 
           );
         })}
       </div>
+      <RoundReview view={view} />
       {view.isHost ? (
         <button className="btn primary" onClick={() => send({ type: over ? 'newGame' : 'nextRound' })}>
           {over ? 'Back to lobby' : 'Next round'}
@@ -1300,6 +1301,42 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** Your costliest plays this round, scored by the same simulation the bots use (worst first). */
+function RoundReview({ view }: { view: PlayerView }) {
+  if (view.you === null || (!view.review && !view.reviewing)) return null;
+  return (
+    <div className="review">
+      <div className="label">Your plays</div>
+      {!view.review ? (
+        <div className="review-note">
+          <div className="spinner" /> Reviewing your plays…
+        </div>
+      ) : view.review.length === 0 ? (
+        <div className="review-note">No costly plays this round. Nicely done.</div>
+      ) : (
+        view.review.map((r) => (
+          <div className="review-row" key={r.trick}>
+            <span className="review-trick">Trick {r.trick}</span>
+            <span className="review-cards">
+              {r.played.map((c) => (
+                <CardFace key={c.id} card={c} className="tiny" />
+              ))}
+            </span>
+            <span className="review-arrow">→</span>
+            <span className="review-cards">
+              {r.better.map((c) => (
+                <CardFace key={c.id} card={c} className="tiny" />
+              ))}
+            </span>
+            <span className="review-cost">≈ {r.cost} pts</span>
+          </div>
+        ))
+      )}
+      {view.review && view.review.length > 0 && <div className="review-note dim">You played the left; the right would have scored about this many more points for your team.</div>}
     </div>
   );
 }

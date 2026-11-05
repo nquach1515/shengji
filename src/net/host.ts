@@ -1,4 +1,5 @@
 import { botBury, botDeclare, botPlay, suggest } from '../game/bot';
+import type { Difficulty } from '../game/live';
 import { sortHand } from '../game/rules';
 import {
   bury,
@@ -20,7 +21,7 @@ import {
   resetToLobby,
   startRound,
 } from '../game/engine';
-import { Action, ClientMsg, HostMsg, Pace, PlayerView, Settings } from './protocol';
+import { Action, ClientMsg, HostMsg, Pace, PlayerView, ReviewItem, Settings } from './protocol';
 import { reliableTimeout } from './timer';
 import { redactFor } from '../game/info';
 import { randomInt } from '../game/cards';
@@ -86,7 +87,7 @@ export function randomCode(): string {
 export class HostController {
   state: GameState;
   seats: (SeatInfo | null)[];
-  settings: Settings = { startLevel: 2, pace: 'normal', decks: 2 };
+  settings: Settings = { startLevel: 2, pace: 'normal', decks: 2, difficulty: 'hard' };
   status: NetStatus = 'offline';
   statusDetail = '';
   private socket: WebSocket | null = null;
@@ -103,6 +104,14 @@ export class HostController {
   private worker: Worker | null | undefined;
   private workerSeq = 0;
   private workerWaiting = new Map<number, (ids: string[] | null) => void>();
+  /** post-round review: a second worker scores each person's moves, so bots never wait behind it */
+  private reviewWorker: Worker | null | undefined;
+  private reviewWaiting = new Map<number, (r: { better: string[]; cost: number } | null) => void>();
+  /** costly plays found this round, per seat */
+  private reviews = new Map<number, ReviewItem[]>();
+  /** reviews still being computed, per seat */
+  private reviewPending = new Map<number, number>();
+  private reviewRound = -1;
   /** the decision a bot is currently thinking about, so it isn't requested twice */
   private botThinking: string | null = null;
   private hintCache: { key: string; move: Promise<string[] | null> } | null = null;
@@ -379,8 +388,13 @@ export class HostController {
         return pass(s, seat);
       case 'bury':
         return bury(s, seat, a.cardIds);
-      case 'play':
-        return play(s, seat, a.cardIds, this.name);
+      case 'play': {
+        const before = s.phase === 'playing' ? redactFor(s, seat) : null;
+        const trick = s.tricksPlayed + 1;
+        const err = play(s, seat, a.cardIds, this.name);
+        if (!err && before) this.review(seat, before, a.cardIds, trick);
+        return err;
+      }
     }
     return null;
   }
@@ -461,7 +475,7 @@ export class HostController {
     const seat = this.state.turn;
     const started = Date.now();
     const minDelay = (650 + Math.random() * 450) * PACE[this.settings.pace].bot;
-    void this.botMove(seat).then((ids) => {
+    void this.botMove(seat, this.settings.difficulty ?? 'hard').then((ids) => {
       reliableTimeout(() => {
         const s = this.state;
         // Ignore if the game moved on meanwhile (reset, seat handed back to a human, ...).
@@ -478,7 +492,8 @@ export class HostController {
   private prefetchHint(seat: number) {
     const key = this.decisionKey();
     if (this.hintCache?.key === key) return;
-    this.hintCache = { key, move: this.botMove(seat) };
+    // hints are always full strength, whatever the bots' difficulty
+    this.hintCache = { key, move: this.botMove(seat, 'hard') };
   }
 
   private hintFor(seat: number): Promise<string[] | null> {
@@ -486,7 +501,7 @@ export class HostController {
     return this.hintCache!.move;
   }
 
-  private botMove(seat: number): Promise<string[] | null> {
+  private botMove(seat: number, level: Difficulty): Promise<string[] | null> {
     if (this.worker === undefined) {
       try {
         this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
@@ -508,8 +523,54 @@ export class HostController {
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
       // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
-      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, budgetMs: PACE[this.settings.pace].think });
+      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, budgetMs: PACE[this.settings.pace].think, level });
     });
+  }
+
+  // ---------- post-round review ----------
+
+  /** Score a person's move in the background; a clearly costly one is kept for the round-end review. */
+  private review(seat: number, before: GameState, played: string[], trick: number) {
+    if (this.isBot(seat)) return;
+    if (this.reviewWorker === undefined) {
+      try {
+        this.reviewWorker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
+        this.reviewWorker.onmessage = (e: MessageEvent<{ id: number; review: { better: string[]; cost: number } | null }>) => {
+          this.reviewWaiting.get(e.data.id)?.(e.data.review);
+          this.reviewWaiting.delete(e.data.id);
+        };
+        this.reviewWorker.onerror = () => {
+          this.reviewWaiting.clear();
+          this.reviewPending.clear();
+          this.reviewWorker = null;
+        };
+      } catch {
+        this.reviewWorker = null;
+      }
+    }
+    if (!this.reviewWorker) return;
+    const round = before.round;
+    if (this.reviewRound !== round) {
+      this.reviews.clear();
+      this.reviewPending.clear();
+      this.reviewRound = round;
+    }
+    const id = ++this.workerSeq;
+    const hand = before.hands[seat];
+    this.reviewPending.set(seat, (this.reviewPending.get(seat) ?? 0) + 1);
+    this.reviewWaiting.set(id, (r) => {
+      if (this.destroyed || this.reviewRound !== round) return;
+      this.reviewPending.set(seat, (this.reviewPending.get(seat) ?? 1) - 1);
+      const roundOver = this.state.phase === 'roundEnd' || this.state.phase === 'gameOver';
+      if (!r) {
+        if (roundOver) this.changed();
+        return;
+      }
+      const cards = (ids: string[]) => sortHand(hand.filter((c) => ids.includes(c.id)), ctxOf(before));
+      this.reviews.set(seat, [...(this.reviews.get(seat) ?? []), { trick, played: cards(played), better: cards(r.better), cost: r.cost }]);
+      if (roundOver) this.changed();
+    });
+    this.reviewWorker.postMessage({ id, kind: 'review', state: before, seat, played });
   }
 
   // ---------- views ----------
@@ -568,6 +629,12 @@ export class HostController {
       // only completed tricks count, so tallies change when a trick is collected, not as cards hit the table
       pointsPlayed: (s.history ?? []).reduce((t, tr) => t + tr.points, 0),
       voids: s.voids,
+      // undefined while your plays are still being scored (or you made none this round)
+      review:
+        you !== null && (s.phase === 'roundEnd' || s.phase === 'gameOver') && this.reviewRound === s.round && !this.reviewPending.get(you)
+          ? [...(this.reviews.get(you) ?? [])].sort((a, b) => b.cost - a.cost).slice(0, 3)
+          : undefined,
+      reviewing: you !== null && this.reviewRound === s.round && (this.reviewPending.get(you) ?? 0) > 0,
     };
   }
 }

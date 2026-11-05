@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, levelLabel } from '../game/cards';
 import { loadSavedHost } from '../net/host';
 import { Pace, Settings } from '../net/protocol';
+import type { Difficulty } from '../game/live';
 import type { StartMode } from './App';
 import { CardBack, CardFace } from './Card';
 import { Back, Felt, useDisplay } from './display';
@@ -72,6 +73,25 @@ export function lengthName(level: number) {
   return LENGTHS.find((l) => l.level === level)?.label ?? `Starts at ${levelLabel(level)}`;
 }
 
+export const DIFFICULTIES: { value: Difficulty; label: string; note: string }[] = [
+  { value: 'easy', label: 'Easy', note: 'Rule-based bots that slip up now and then' },
+  { value: 'normal', label: 'Normal', note: 'Trained bots, without the look-ahead' },
+  { value: 'hard', label: 'Hard', note: 'Trained bots that simulate the rest of the round' },
+];
+
+/** Bot strength; hints are always full strength. */
+export function DifficultyPicker({ id, value, onChange }: { id: string; value: Difficulty; onChange: (d: Difficulty) => void }) {
+  return (
+    <>
+      <div className="opt-row">
+        <span className="label">Bots</span>
+        <Segmented id={id} options={DIFFICULTIES} value={value} onChange={onChange} />
+      </div>
+      <div className="opt-note">{DIFFICULTIES.find((d) => d.value === value)!.note}</div>
+    </>
+  );
+}
+
 export const PACES: { pace: Pace; label: string }[] = [
   { pace: 'relaxed', label: 'Relaxed' },
   { pace: 'normal', label: 'Normal' },
@@ -109,7 +129,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
-  const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal', decks: 2 });
+  const [settings, setSettings] = useState<Settings>({ startLevel: 2, pace: 'normal', decks: 2, difficulty: 'hard' });
   const [rules, setRules] = useState(false);
   const [news, setNews] = useState(false);
   const [display, setDisplay] = useState(false);
@@ -226,6 +246,7 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
               />
             </div>
             <div className="opt-note">{DECK_OPTIONS.find((d) => d.decks === settings.decks)!.note}</div>
+            <DifficultyPicker id="diff" value={settings.difficulty ?? 'hard'} onChange={(difficulty) => setSettings((s) => ({ ...s, difficulty }))} />
             <div className="opt-row">
               <span className="label">Pace</span>
               <Segmented
@@ -403,28 +424,24 @@ export function WhatsNewModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose} className="rules">
       <h2>What's new in v{__APP_VERSION__}</h2>
-      <h3>Play with 3 decks</h3>
+      <h3>Display options</h3>
       <ul>
-        <li>Pick 2 or 3 decks when you set up a game: 38 cards each, a 10-card kitty, and 120 of 300 points takes the deal.</li>
-        <li>Triples and triple tractors: answer a triple with a triple (or a pair if you have none). You never have to split a triple to answer a pair.</li>
-        <li>A triple declaration beats any pair, and no trump takes three of the same joker.</li>
+        <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and larger card corners — easier to read on a phone.</li>
+        <li>Pick the table colour (red, green, blue, charcoal) and card backs, or reduce motion. Find it under Display on the home screen or in the ⋯ menu.</li>
       </ul>
-      <h3>Online play</h3>
+      <h3>Bot difficulty</h3>
       <ul>
-        <li>Games connect through a relay server, so they work through VPNs and many networks that used to block them.</li>
+        <li>Choose Easy, Normal or Hard bots when you set up a game. Hard is the full-strength bots you had before. Hints are always full strength.</li>
       </ul>
-      <h3>Smarter bots and hints</h3>
+      <h3>Round review</h3>
       <ul>
-        <li>Retrained bots for 2 decks and a new model trained for 3 decks.</li>
-        <li>They no longer put points on a trick the opponents will probably take, lead point cards that can be beaten, or hold back an ace and let the other one win.</li>
-        <li>They keep triples together, throw their cheapest cards when they can't win, and read your hands better.</li>
-        <li>Bots wait until two thirds of the deck is dealt before declaring, so you get a fair chance to declare first.</li>
+        <li>At the end of each round, see your costliest plays and what would have scored more, checked by the same simulation the bots use.</li>
       </ul>
-      <h3>Look and feel</h3>
+      <h3>Also new</h3>
       <ul>
-        <li>Your hand always alternates red and black suits.</li>
-        <li>Clearer blocked-throw popup that stays up longer, level badges no longer cut off, declared cards stay on screen on phones.</li>
-        <li>The kitty bonus is always ×2 when the attackers win the last trick.</li>
+        <li>Start a game at any level from 2 to A with Custom length.</li>
+        <li>Smarter bots: they feed points onto a partner's trick nobody can beat, take the opponents' points when they're last to play, and break up a triple to take a trick worth points.</li>
+        <li>No more flicker when the page loads.</li>
       </ul>
       <button className="btn primary" onClick={onClose}>
         Let's play

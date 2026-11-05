@@ -384,6 +384,47 @@ export function holdChance(s: GameState, seat: number, card: Card, leadSuit: str
 /** How sure the partner must be that a trick holds before feeding it points, or before cashing a top card. */
 export const HOLD_THRESHOLD = 0.65;
 
+/** A costly play found by reviewMove: the move made, a better one, and about how many points it cost. */
+export interface MoveReview {
+  better: string[];
+  cost: number;
+}
+
+/**
+ * Post-round review: was `played` clearly worse than another sensible move? Scores every option on the same sampled
+ * deals (consistent with what `seat` knew, never the real hands), playing the rest of the round out with the
+ * heuristic, in points for `seat`'s team. Reports the best option only when it beats the move made by at least
+ * `minCost` points and by more than twice the standard error, so noise isn't reported as a mistake.
+ */
+export function reviewMove(s: GameState, seat: number, played: string[], budgetMs = 800, minSamples = 24, minCost = 5): MoveReview | null {
+  const keyOf = (ids: string[]) => [...ids].sort().join(',');
+  const options = moveOptions(s, seat);
+  let mine = options.findIndex((m) => keyOf(m) === keyOf(played));
+  if (mine < 0) {
+    options.push(played);
+    mine = options.length - 1;
+  }
+  if (options.length < 2) return null;
+  const scores: number[][] = options.map(() => []);
+  const t0 = Date.now();
+  try {
+    while (scores[0].length < 200 && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
+      const d = determinize(s, seat);
+      options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m)));
+    }
+  } catch {
+    if (scores[0].length < minSamples) return null;
+  }
+  const n = Math.min(...scores.map((x) => x.length));
+  const mean = (xs: number[]) => xs.slice(0, n).reduce((t, x) => t + x, 0) / n;
+  const best = options.map((_, i) => i).sort((a, b) => mean(scores[b]) - mean(scores[a]))[0];
+  if (best === mine) return null;
+  const diff = scores[best].slice(0, n).map((x, k) => x - scores[mine][k]);
+  const m = diff.reduce((t, x) => t + x, 0) / n;
+  const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, n - 1) / n);
+  return m >= minCost && m > 2 * se ? { better: options[best], cost: Math.round(m) } : null;
+}
+
 /**
  * Last to play, the opponents are winning a trick with points, and we can beat them: the result is certain, so take
  * it with the cheapest winning play (the heuristic's when it wins). The search can miss this: with whole-round

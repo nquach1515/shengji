@@ -1,4 +1,5 @@
 import { Card } from '../game/cards';
+import type { Difficulty } from '../game/live';
 import { DeckRules, DeclareOption, GameEvent, Phase, RoundResult, Trick, TrumpSuit } from '../game/engine';
 
 export type Action =
@@ -26,6 +27,8 @@ export interface Settings {
   pace: Pace;
   /** 2 or 3 decks; takes effect from the next game */
   decks: number;
+  /** how strong the bots play (hints always use full strength); missing in older saves: hard */
+  difficulty?: Difficulty;
 }
 
 export interface SeatView {
@@ -77,8 +80,20 @@ export interface PlayerView {
   settings: Settings;
   /** total points in tricks completed so far this round (for "points blocked") */
   pointsPlayed: number;
+  /** at round end: your costliest plays this round, worst first (up to 3); [] if none stood out */
+  review?: ReviewItem[];
+  /** your plays this round are still being scored */
+  reviewing?: boolean;
   /** effective suits ('S','H','D','C' or 'T' for trump) each seat has shown it's out of this round */
   voids: string[][];
+}
+
+export interface ReviewItem {
+  trick: number;
+  played: Card[];
+  better: Card[];
+  /** about how many points the play cost your team */
+  cost: number;
 }
 
 export type ClientMsg = { t: 'hello'; clientId: string; name: string } | { t: 'action'; action: Action };

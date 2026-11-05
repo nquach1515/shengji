@@ -7,17 +7,39 @@
 // +8.8 +/- 1.8 points per round. Playouts are scored by points plus the level outcome (LEVEL_WEIGHT), so crossing a
 // score threshold counts for more than a point either side of it.
 import { decksOf, GameState } from './engine';
-import { liveMove } from './live';
-import { LEVEL_WEIGHT, searchPlayTimed } from './search';
+import { Difficulty, easyMove, liveMove } from './live';
+import { LEVEL_WEIGHT, MoveReview, reviewMove, searchPlayTimed } from './search';
 
-self.onmessage = (e: MessageEvent<{ id: number; state: GameState; seat: number; budgetMs: number }>) => {
-  const { id, state, seat, budgetMs } = e.data;
+type Request =
+  | { id: number; kind?: 'move'; state: GameState; seat: number; budgetMs: number; level?: Difficulty }
+  // post-round review: was `played` (made in `state`) clearly worse than another move?
+  | { id: number; kind: 'review'; state: GameState; seat: number; played: string[] };
+
+self.onmessage = (e: MessageEvent<Request>) => {
+  if (e.data.kind === 'review') {
+    const { id, state, seat, played } = e.data;
+    let review: MoveReview | null = null;
+    try {
+      review = reviewMove(state, seat, played);
+    } catch {
+      review = null;
+    }
+    (self as unknown as Worker).postMessage({ id, review });
+    return;
+  }
+  const { id, state, seat, budgetMs, level = 'hard' } = e.data;
   let ids: string[] | null = null;
   const three = decksOf(state) === 3;
   // 3-deck playouts are longer, so fewer guaranteed samples keep the slowest moves as quick as with 2 decks
   const minSamples = three ? 16 : 32;
   try {
-    ids = liveMove(state, seat, (prior) => searchPlayTimed(state, seat, budgetMs, prior, minSamples, 400, LEVEL_WEIGHT));
+    // Hard: the model checked by the search; Normal: the model and rules alone; Easy: the rule-based bot with slips
+    ids =
+      level === 'easy'
+        ? easyMove(state, seat)
+        : level === 'normal'
+          ? liveMove(state, seat, (prior) => prior)
+          : liveMove(state, seat, (prior) => searchPlayTimed(state, seat, budgetMs, prior, minSamples, 400, LEVEL_WEIGHT));
   } catch {
     ids = null;
   }
