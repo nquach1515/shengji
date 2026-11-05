@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { motion } from './motion';
 import { PointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Card } from '../game/cards';
 import { effSuit, isTrump, TrumpCtx } from '../game/rules';

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from './motion';
 
 export function Modal({ children, onClose, className = '' }: { children: React.ReactNode; onClose?: () => void; className?: string }) {
   return (

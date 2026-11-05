@@ -1,4 +1,5 @@
-import { AnimatePresence, animate, motion, useMotionValue } from 'framer-motion';
+import { AnimatePresence, animate, useMotionValue } from 'framer-motion';
+import { motion } from './motion';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
 import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';

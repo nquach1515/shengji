@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { motion } from './motion';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, levelLabel } from '../game/cards';
 import { loadSavedHost } from '../net/host';
@@ -26,7 +27,7 @@ export const DECK_OPTIONS: { decks: number; label: string; note: string }[] = [
 ];
 /**
  * Game length: the presets, or Custom to start both teams at any level from 2 to A. Shows the preset's note, or a
- * stepper for the custom level, under the row (`note` false leaves the note out).
+ * stepper for the custom level, on one line under the row (`note` false leaves the preset note out).
  */
 export function LengthPicker({ id, value, onChange, note = true }: { id: string; value: number; onChange: (level: number) => void; note?: boolean }) {
   const preset = LENGTHS.find((l) => l.level === value);
@@ -45,18 +46,18 @@ export function LengthPicker({ id, value, onChange, note = true }: { id: string;
           }}
         />
       </div>
+      {/* the custom stepper sits in the note's one-line slot, so switching to Custom doesn't move the rows below */}
       {custom ? (
-        <div className="opt-row">
-          <span className="label">Start</span>
-          <div className="stepper">
-            <button className="btn small" aria-label="Lower start level" disabled={value <= 2} onClick={() => onChange(value - 1)}>
-              −
-            </button>
-            <span className="lvl">{levelLabel(value)}</span>
-            <button className="btn small" aria-label="Higher start level" disabled={value >= 14} onClick={() => onChange(value + 1)}>
-              +
-            </button>
-          </div>
+        <div className="opt-note start-at">
+          Start at
+          <button className="step" aria-label="Lower start level" disabled={value <= 2} onClick={() => onChange(value - 1)}>
+            −
+          </button>
+          <b>{levelLabel(value)}</b>
+          <button className="step" aria-label="Higher start level" disabled={value >= 14} onClick={() => onChange(value + 1)}>
+            +
+          </button>
+          · climb to Ace
         </div>
       ) : (
         note && preset && <div className="opt-note">{preset.note}</div>

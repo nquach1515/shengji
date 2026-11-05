@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { motion } from './motion';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { clearSavedHost, HostController, loadSavedHost, randomCode } from '../net/host';
 import { GameConnection, getClientId, LocalConnection, RemoteConnection } from '../net/client';

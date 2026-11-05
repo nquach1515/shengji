@@ -806,7 +806,11 @@ input { font: inherit; }
 
 /* How to play · What's new */
 .links { display: flex; gap: 18px; justify-content: center; }
-/* custom start level: − A + */
-.stepper { display: inline-flex; align-items: center; gap: 10px; }
-.stepper .btn { width: 34px; padding: 4px 0; font-size: 18px; line-height: 1; }
-.stepper .lvl { min-width: 28px; text-align: center; font-family: var(--serif); font-weight: 800; font-size: 20px; color: var(--gold-hi); }
+/* custom start level, in the note line: Start at − 8 + · climb to Ace */
+.opt-note.start-at { display: flex; align-items: center; gap: 6px; line-height: 1; }
+.opt-note.start-at .step {
+  width: 20px; height: 20px; margin: -3px 0; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line-strong); background: rgba(0, 0, 0, 0.35); color: var(--gold-hi); font-size: 14px; line-height: 1;
+}
+.opt-note.start-at .step:disabled { opacity: 0.35; cursor: default; }
+.opt-note.start-at b { min-width: 18px; text-align: center; font-family: var(--serif); font-size: 15px; font-variant-numeric: lining-nums; }

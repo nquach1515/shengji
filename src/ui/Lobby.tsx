@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { motion } from './motion';
 import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, copyText, posOf, sideOf } from './common';
@@ -134,7 +135,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
 
         {view.isHost ? (
           <div className="plate settings-row">
-            <LengthPicker id="lobby-len" note={false} value={view.settings.startLevel} onChange={(startLevel) => send({ type: 'settings', settings: { startLevel } })} />
+            <LengthPicker id="lobby-len" value={view.settings.startLevel} onChange={(startLevel) => send({ type: 'settings', settings: { startLevel } })} />
             <div className="opt-row">
               <span className="label">Decks</span>
               <Segmented
