@@ -840,9 +840,30 @@ input { font: inherit; }
   --felt-center: #545a64; --felt: #3a3e46; --felt-edge: #1e2126; --felt-shade: rgba(0, 0, 0, 0.55);
   --rail: #2c2f35; --rail-edge: #16181c; --watermark: rgba(0, 0, 0, 0.3);
 }
+:root[data-felt='rainbow'] {
+  /* rail, preview and fallbacks; the felt itself is a softened diagonal rainbow below */
+  --felt-center: #8a5bd0; --felt: #4f7fd0; --felt-edge: #2a2440; --felt-shade: rgba(0, 0, 0, 0.5);
+  --rail: #2c2438; --rail-edge: #17121f; --watermark: rgba(0, 0, 0, 0.28);
+  --rainbow-felt: radial-gradient(ellipse 62% 58% at 50% 45%, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.1) 55%, rgba(0, 0, 0, 0.45) 100%),
+    linear-gradient(150deg, #c9404a 0%, #d8862e 17%, #d3b83a 33%, #3f9f5f 50%, #2d7cbc 67%, #5f53bf 83%, #a24aa4 100%);
+}
+:root[data-felt='rainbow'] .oval::before, :root[data-felt='rainbow'] .display-preview { background: var(--rainbow-felt); }
 :root[data-back='blue'] { --back-a: #2560c4; --back-b: #0f2d66; }
 :root[data-back='green'] { --back-a: #23874f; --back-b: #0d4527; }
 :root[data-back='black'] { --back-a: #3d4049; --back-b: #121317; }
+:root[data-back='rainbow'] {
+  --back-a: #6a5bd0; --back-b: #2f86c9;
+  --rainbow-back: linear-gradient(160deg, #d9434b 0%, #e8912f 18%, #e3c53a 34%, #3eae64 50%, #2f86c9 66%, #6a5bd0 82%, #b54fb5 100%);
+}
+:root[data-back='rainbow'] .card.back {
+  background:
+    radial-gradient(circle at 50% 50%, #f6d27a 0 9%, #a5741f 9.5% 11%, transparent 11.5%),
+    radial-gradient(circle at 50% 50%, transparent 0 17%, rgba(246, 210, 122, 0.55) 17.5% 18.5%, transparent 19%),
+    repeating-linear-gradient(45deg, rgba(255, 245, 220, 0.3) 0 1.5px, transparent 1.5px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 245, 220, 0.3) 0 1.5px, transparent 1.5px 7px),
+    var(--rainbow-back);
+}
+:root[data-back='rainbow'] .cc::before { background: var(--rainbow-back); }
 
 /* four-colour suits: ♦ blue, ♣ green (♠ black, ♥ red as usual) */
 :root[data-suits='4'] .card.suit-D, :root[data-suits='4'] .suit-D.medallion, :root[data-suits='4'] .suit-D.void,
@@ -870,6 +891,8 @@ input { font: inherit; }
 .modal.display-opts h2 { text-align: center; }
 .modal.display-opts .opt-note { padding-left: 0; margin-top: -8px; }
 .modal.display-opts .btn.primary { align-self: center; }
+/* five table and back colours fit a phone-width dialog */
+.modal.display-opts .seg button { padding: 6px 10px; }
 .display-preview {
   display: flex; justify-content: center; gap: 8px; padding: 16px 12px; border-radius: 16px;
   background: radial-gradient(ellipse 70% 80% at 50% 45%, var(--felt-center) 0%, var(--felt) 55%, var(--felt-edge) 100%);

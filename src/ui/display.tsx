@@ -4,8 +4,8 @@
  */
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-export type Felt = 'red' | 'green' | 'blue' | 'charcoal';
-export type Back = 'red' | 'blue' | 'green' | 'black';
+export type Felt = 'red' | 'green' | 'blue' | 'charcoal' | 'rainbow';
+export type Back = 'red' | 'blue' | 'green' | 'black' | 'rainbow';
 
 export interface Display {
   /** ♦ blue and ♣ green, so no two suits share a colour */

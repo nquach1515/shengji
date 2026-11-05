@@ -325,12 +325,14 @@ const FELTS: { value: Felt; label: string }[] = [
   { value: 'green', label: 'Green' },
   { value: 'blue', label: 'Blue' },
   { value: 'charcoal', label: 'Charcoal' },
+  { value: 'rainbow', label: 'Rainbow' },
 ];
 const BACKS: { value: Back; label: string }[] = [
   { value: 'red', label: 'Red' },
   { value: 'blue', label: 'Blue' },
   { value: 'green', label: 'Green' },
   { value: 'black', label: 'Black' },
+  { value: 'rainbow', label: 'Rainbow' },
 ];
 const PREVIEW: Card[] = [
   { id: 'p1', suit: 'S', rank: 10 },
