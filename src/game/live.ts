@@ -4,13 +4,15 @@
  */
 import { decksOf, GameState } from './engine';
 import { learnedPlay } from './policy';
-import { feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, noRiskyPointLead, noRiskyPointsMove, noUnderlead } from './search';
+import { feedLikelyMove, feedSafeMove, feedTrickMove, hopelessTrickMove, keepHighCards, noRiskyPointLead, noRiskyPointsMove, noUnderlead } from './search';
 
-export function liveMove(state: GameState, seat: number, search: (prior: string[]) => string[]): string[] {
+export function liveMove(state: GameState, seat: number, search: (prior: string[]) => string[], opts = { feedSafe: true }): string[] {
   const three = decksOf(state) === 3;
   const move =
     hopelessTrickMove(state, seat) ??
     feedTrickMove(state, seat) ??
+    // partner's winning cards can't be beaten by anyone still to play: feed points
+    (opts.feedSafe ? feedSafeMove(state, seat) : null) ??
     // 3 decks, 3,000 duplicate deals each (scripts/ml/match.ts): feeding a likely-winning partner cost
     // -0.71 ± 0.34 points/round and never-higher-than-needed -0.71 ± 0.37, so neither is used there
     (three ? null : feedLikelyMove(state, seat)) ??

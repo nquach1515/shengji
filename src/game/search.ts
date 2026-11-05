@@ -11,7 +11,7 @@
 import { botPlay, candidates, keepTriples } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
 import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
-import { cardValue, decompose, effSuit, isTrump, trickWinner, validateFollow } from './rules';
+import { cardValue, decompose, effSuit, isTrump, matchShape, trickWinner, tuplesOf, validateFollow } from './rules';
 import { playReader, ReadParams } from './inference';
 import { knownLocations } from './info';
 
@@ -382,6 +382,57 @@ export function holdChance(s: GameState, seat: number, card: Card, leadSuit: str
 
 /** How sure the partner must be that a trick holds before feeding it points, or before cashing a top card. */
 export const HOLD_THRESHOLD = 0.65;
+
+/**
+ * Partner is winning and no opponent still to play can possibly beat it: feed the most points we can spare. "Can't
+ * beat" is proven, not guessed: for each later opponent, no combination of the needed shape that ranks higher is
+ * still unseen, or they've shown they're out of the suit or have no pairs (triples) left in it (GameState.maxCopies);
+ * and the same for trumping in, unless trumps were led. E.g. partner's trump KK with no higher trump pair left
+ * anywhere the opponents could hold one.
+ */
+export function feedSafeMove(s: GameState, seat: number): string[] | null {
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return null;
+  const ctx = ctxOf(s);
+  const winner = trickWinner(trick.plays, ctx);
+  if (winner !== (seat + 2) % 4) return null;
+  const lead = trick.plays[0].cards;
+  const comps = decompose(lead, ctx);
+  if (comps.length !== 1) return null; // throws: leave to the other rules
+  const { width } = comps[0];
+  const leadSuit = effSuit(lead[0], ctx);
+  const winCards = trick.plays.find((p) => p.seat === winner)!.cards;
+  const winSuit = effSuit(winCards[0], ctx);
+  const top = matchShape(winCards, comps, ctx);
+  if (top === null) return null;
+  const hand = s.hands[seat];
+  const seen = new Set([...hand, ...s.played, ...(seat === s.dealer ? s.kitty : [])].map((c) => c.id));
+  const unseen = makeDecks(decksOf(s)).filter((c) => !seen.has(c.id));
+  // could opponent `o` hold a `width`-of-a-kind in `suit` ranking above `above`?
+  const couldHold = (o: number, suit: string, above: number) =>
+    !s.voids[o].includes(suit) &&
+    (s.maxCopies?.[o]?.[suit] ?? Infinity) >= width &&
+    tuplesOf(unseen.filter((c) => effSuit(c, ctx) === suit), width).some((t) => cardValue(t[0], ctx) > above);
+  const played = new Set(trick.plays.map((p) => p.seat));
+  const later = [1, 2, 3].map((i) => (seat + i) % 4).filter((x) => !played.has(x) && x % 2 !== seat % 2);
+  for (const o of later) {
+    if (winSuit === leadSuit && couldHold(o, leadSuit, top)) return null; // beat it in suit
+    if (leadSuit !== 'T' && couldHold(o, 'T', winSuit === 'T' ? top : -1)) return null; // trump in (or over-trump)
+  }
+  const cardsOf = (m: string[]) => hand.filter((c) => m.includes(c.id));
+  const count = new Map<string, number>();
+  for (const c of hand) count.set(cardKey(c), (count.get(cardKey(c)) ?? 0) + 1);
+  const score = (m: string[]) => {
+    const cards = cardsOf(m);
+    const used = new Map<string, number>();
+    for (const c of cards) used.set(cardKey(c), (used.get(cardKey(c)) ?? 0) + 1);
+    const broken = [...used].filter(([k, n]) => (count.get(k) ?? 0) >= 2 && n < count.get(k)!).length;
+    const trumpsSpent = leadSuit === 'T' ? 0 : cards.filter((c) => isTrump(c, ctx)).length;
+    return totalPoints(cards) * 10 - broken * 25 - trumpsSpent * 40 - cards.reduce((t, c) => t + cardValue(c, ctx), 0) * 0.1;
+  };
+  const best = moveOptions(s, seat).sort((a, b) => score(b) - score(a))[0];
+  return best && totalPoints(cardsOf(best)) > 0 ? best : null;
+}
 
 /**
  * Partner is winning a single-card trick and, by card counting, will very likely keep it: play the most points we

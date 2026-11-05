@@ -59,6 +59,9 @@ const configs: Record<string, Policy> = {
   // left out in turn, to measure what it's worth.
   // the live chain for this deck count with the model in place of the search, with and without the guard against
   // adding points to a single-card trick our side will probably lose
+  // the live pipeline with the model in place of the search, with and without the proven-safe feed
+  'live-model': (s, seat) => liveMove(s, seat, (prior) => prior),
+  'live-model-nofeedsafe': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: false }),
   'model-live': (s, seat) => modelLive(s, seat, false),
   'model-live-guard': (s, seat) => modelLive(s, seat, true),
   'model-live-guard75': (s, seat) => modelLive(s, seat, true, 0.75),

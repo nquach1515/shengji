@@ -1,6 +1,6 @@
 // Headless sanity check: plays many full rounds with 4 bots and verifies engine invariants.
 import { basicPlay, botBury, botDeclare, botPlay, legalFollow, splitsTriple } from '../src/game/bot';
-import { noRiskyPointLead, noRiskyPointsMove, noUnderlead, searchPlay, settledTrickMove } from '../src/game/search';
+import { feedSafeMove, noRiskyPointLead, noRiskyPointsMove, noUnderlead, searchPlay, settledTrickMove } from '../src/game/search';
 import { redactFor } from '../src/game/info';
 import { totalPoints } from '../src/game/cards';
 import {
@@ -377,6 +377,29 @@ for (const decks of [2, 3]) {
   const hand = [C('S', 3), C('C', 5), C('D', 7), C('S', 9), C('C', 11), C('D', 12), C('H', 4)];
   const order = [...new Set(sortHand(hand, { suit: 'H', rank: 2 }).map((c) => effSuit(c, { suit: 'H', rank: 2 })))];
   assert(order.join() === 'S,D,C,T', `hearts trump: spades, diamonds, clubs, then trump (got ${order})`);
+}
+// Partner's trump KK can't be beaten (the last opponent has shown no trump pairs): feed points (from a real game)
+{
+  const g = newGame();
+  startRound(g);
+  g.dealer = 1;
+  g.trumpRank = 2;
+  g.trumpSuit = 'H';
+  g.phase = 'playing';
+  g.hands = [
+    [C('C', 3), C('C', 4), C('D', 5), C('D', 6)],
+    [C('C', 5), C('C', 6), C('D', 7), C('D', 8)],
+    [C('H', 10), C('H', 5), C('H', 6), C('H', 7), C('C', 9), C('D', 9)],
+    [C('H', 8), C('H', 9), C('H', 11), C('H', 12), C('C', 12), C('D', 12)],
+  ];
+  g.trick = { leader: 0, plays: [{ seat: 0, cards: [C('H', 13), C('H', 13, 1)] }, { seat: 1, cards: [C('H', 3), C('H', 4)] }], winner: null, points: 20 };
+  g.played = g.trick.plays.flatMap((p) => p.cards);
+  g.turn = 2;
+  g.maxCopies = [{}, {}, {}, { T: 1 }];
+  const m = feedSafeMove(redactFor(g, 2), 2);
+  assert(m !== null && m.includes('0H10') && m.includes('0H5'), `feed 10♥ 5♥ onto partner's unbeatable KK (played ${m})`);
+  g.maxCopies = [{}, {}, {}, {}];
+  assert(feedSafeMove(redactFor(g, 2), 2) === null, 'no feeding while the last opponent could still hold a higher trump pair');
 }
 console.log('rule checks passed');
 
