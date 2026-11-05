@@ -418,7 +418,7 @@ export function WhatsNewModal({ onClose }: { onClose: () => void }) {
       <h3>Display options</h3>
       <ul>
         <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and a large-index card style — easier to read on a phone.</li>
-        <li>Pick the table colour (red, green, blue, charcoal) and card backs. Find it under Display on the home screen or in the ⋯ menu.</li>
+        <li>Pick the table colour (red, green, blue, charcoal or rainbow) and card backs (including rainbow). Find it under Display on the home screen or in the ⋯ menu.</li>
       </ul>
       <h3>Bot difficulty</h3>
       <ul>
