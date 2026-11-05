@@ -388,6 +388,7 @@ export const HOLD_THRESHOLD = 0.65;
  * Last to play, the opponents are winning a trick with points, and we can beat them: the result is certain, so take
  * it with the cheapest winning play (the heuristic's when it wins). The search can miss this: with whole-round
  * rollouts a certain 10 points now can stay inside its noise, and the model is reluctant to spend e.g. big jokers.
+ * 2,000 duplicate deals (model in place of the search): +0.06 ± 0.19 points/round with 2 decks, +0.20 ± 0.19 with 3.
  */
 export function takeLastTrickMove(s: GameState, seat: number): string[] | null {
   const trick = s.trick!;
