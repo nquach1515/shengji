@@ -11,8 +11,9 @@ export function liveMove(state: GameState, seat: number, search: (prior: string[
   const move =
     hopelessTrickMove(state, seat) ??
     feedTrickMove(state, seat) ??
-    // partner's winning cards can't be beaten by anyone still to play: feed points
-    (opts.feedSafe ? feedSafeMove(state, seat) : null) ??
+    // partner's winning cards can't be beaten by anyone still to play: feed points. 2 decks only: 4,000 duplicate
+    // deals with 3 decks measured -0.26 ± 0.20 points/round (2 decks, 2,000 deals: +0.04 ± 0.18)
+    (opts.feedSafe && !three ? feedSafeMove(state, seat) : null) ??
     // 3 decks, 3,000 duplicate deals each (scripts/ml/match.ts): feeding a likely-winning partner cost
     // -0.71 ± 0.34 points/round and never-higher-than-needed -0.71 ± 0.37, so neither is used there
     (three ? null : feedLikelyMove(state, seat)) ??
