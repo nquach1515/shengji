@@ -7,7 +7,7 @@ import { Pace, Settings } from '../net/protocol';
 import type { Difficulty } from '../game/live';
 import type { StartMode } from './App';
 import { CardBack, CardFace } from './Card';
-import { Back, Felt, useDisplay } from './display';
+import { Back, Background, Felt, useDisplay } from './display';
 import { Modal } from './Modal';
 
 const FAN: Card[] = [
@@ -334,6 +334,13 @@ const BACKS: { value: Back; label: string }[] = [
   { value: 'black', label: 'Black' },
   { value: 'rainbow', label: 'Rainbow' },
 ];
+const BACKGROUNDS: { value: Background; label: string }[] = [
+  { value: 'cherry', label: 'Cherry' },
+  { value: 'midnight', label: 'Midnight' },
+  { value: 'forest', label: 'Forest' },
+  { value: 'graphite', label: 'Graphite' },
+  { value: 'plum', label: 'Plum' },
+];
 const PREVIEW: Card[] = [
   { id: 'p1', suit: 'S', rank: 10 },
   { id: 'p2', suit: 'H', rank: 9 },
@@ -341,7 +348,7 @@ const PREVIEW: Card[] = [
   { id: 'p4', suit: 'D', rank: 7 },
 ];
 
-/** Display options for this device: suit colours, card index size, table and card-back colours. */
+/** Display options for this device: suit colours, card index size, page background, table and card-back colours. */
 export function DisplayModal({ onClose }: { onClose: () => void }) {
   const { display, set } = useDisplay();
   return (
@@ -379,6 +386,10 @@ export function DisplayModal({ onClose }: { onClose: () => void }) {
         />
       </div>
       <div className="opt-note">Large index: a big rank and suit in each corner and one suit symbol in the middle.</div>
+      <div className="opt-row">
+        <span className="label">Background</span>
+        <Segmented id="disp-bg" options={BACKGROUNDS} value={display.background} onChange={(background) => set({ background })} />
+      </div>
       <div className="opt-row">
         <span className="label">Table</span>
         <Segmented id="disp-felt" options={FELTS} value={display.felt} onChange={(felt) => set({ felt })} />
@@ -418,7 +429,7 @@ export function WhatsNewModal({ onClose }: { onClose: () => void }) {
       <h3>Display options</h3>
       <ul>
         <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and a large-index card style — easier to read on a phone.</li>
-        <li>Pick the table colour (red, green, blue, charcoal or rainbow) and card backs (including rainbow). Find it under Display on the home screen or in the ⋯ menu.</li>
+        <li>Pick the background, table colour (including rainbow) and card backs. Find it under Display on the home screen or in the ⋯ menu.</li>
       </ul>
       <h3>Bot difficulty</h3>
       <ul>
