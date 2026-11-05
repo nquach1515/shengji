@@ -75,10 +75,23 @@ export function splitsTriple(hand: Card[], move: Card[]): boolean {
   return move.some((c) => count(hand, c) >= 3 && count(move, c) < 3);
 }
 
-/** Bots split a triple only when they must: the moves that keep every triple whole, or all of them if none does. */
-export function keepTriples<T>(hand: Card[], moves: T[], cardsOf: (m: T) => Card[]): T[] {
-  const whole = moves.filter((m) => !splitsTriple(hand, cardsOf(m)));
+/**
+ * Bots split a triple only when they must: the moves that keep every triple whole, or all of them if none does.
+ * Moves `worthIt` approves (e.g. trumping in with two of a trump triple to take a trick with points) are kept too.
+ */
+export function keepTriples<T>(hand: Card[], moves: T[], cardsOf: (m: T) => Card[], worthIt?: (m: T) => boolean): T[] {
+  const whole = moves.filter((m) => !splitsTriple(hand, cardsOf(m)) || worthIt?.(m));
   return whole.length ? whole : moves;
+}
+
+/** Splitting a triple is worth it to take a trick that has points from the opponents. */
+export function splitWins(s: GameState, seat: number, cards: Card[]): boolean {
+  if ((globalThis as { __noSplitWins?: boolean }).__noSplitWins) return false; // TEMP match toggle
+  const trick = s.trick!;
+  if (trick.plays.length === 0) return false;
+  const ctx = ctxOf(s);
+  if (teamOf(trickWinner(trick.plays, ctx)) === teamOf(seat)) return false;
+  return trick.points + totalPoints(cards) > 0 && trickWinner([...trick.plays, { seat, cards }], ctx) === seat;
 }
 
 /** Single cards to choose from, leaving triples whole when there's any other card. */
@@ -382,6 +395,7 @@ function smartFollow(s: GameState, seat: number): Card[] {
     hand,
     candidates(hand, lead, ctx).filter((c) => c.length === lead.length && validateFollow(c, hand, lead, ctx) === null),
     (c) => c,
+    (c) => splitWins(s, seat, c),
   );
   const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0) + pairBreakCost(cards, hand, ctx);
   const pts = (cards: Card[]) => totalPoints(cards);

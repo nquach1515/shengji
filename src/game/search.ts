@@ -8,7 +8,7 @@
  * the same set of deals, so the comparison isn't swamped by luck of the deal. The bot never looks at real
  * hidden hands — only at random guesses of them.
  */
-import { botPlay, candidates, keepTriples } from './bot';
+import { botPlay, candidates, keepTriples, splitWins } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
 import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
 import { cardValue, decompose, effSuit, isTrump, matchShape, trickWinner, tuplesOf, validateFollow } from './rules';
@@ -124,8 +124,9 @@ export function moveOptions(s: GameState, seat: number): string[][] {
   } else {
     for (const c of candidates(hand, trick.plays[0].cards, ctx)) add(c);
   }
-  // bots split a triple only when every option does
-  return keepTriples(hand, [...out.values()], (ids) => hand.filter((c) => ids.includes(c.id)));
+  // bots split a triple only when every option does, or to take a trick with points from the opponents
+  const cardsOf = (ids: string[]) => hand.filter((c) => ids.includes(c.id));
+  return keepTriples(hand, [...out.values()], cardsOf, (ids) => splitWins(s, seat, cardsOf(ids)));
 }
 
 /** Plays `move` and finishes the round with the heuristic bot; returns points from `seat`'s team's view. */

@@ -61,6 +61,7 @@ const configs: Record<string, Policy> = {
   // adding points to a single-card trick our side will probably lose
   // the live pipeline with the model in place of the search, with and without the proven-safe feed
   'live-model': (s, seat) => liveMove(s, seat, (prior) => prior),
+  'live-model-nosplitwins': (s, seat) => { (globalThis as any).__noSplitWins = true; try { return liveMove(s, seat, (prior) => prior); } finally { (globalThis as any).__noSplitWins = false; } },
   'live-model-nofeedsafe': (s, seat) => liveMove(s, seat, (prior) => prior, { feedSafe: false }),
   'model-live': (s, seat) => modelLive(s, seat, false),
   'model-live-guard': (s, seat) => modelLive(s, seat, true),
