@@ -68,7 +68,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
             const pos = posOf(i, view.you);
             const side = sideOf(i, view.you);
             return (
-              <div key={i} className={`lobby-seat ${seat ? 'plate' : 'empty'}`} style={SPOT[pos]}>
+              <div key={i} className={`lobby-seat seat-${pos} ${seat ? 'plate' : 'empty'}`} style={SPOT[pos]}>
                 <AnimatePresence mode="popLayout" initial={false}>
                   {seat ? (
                     <motion.div

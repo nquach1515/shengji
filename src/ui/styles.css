@@ -424,6 +424,10 @@ input { font: inherit; }
   text-align: center;
   z-index: 2;
 }
+/* the top and bottom seats keep their outer edge just inside the table's margin and grow toward the middle, so a
+   taller card (e.g. with Make partner / Remove) never runs into the invite row above or the settings below */
+.lobby-seat.seat-top { transform: translate(-50%, -46px); }
+.lobby-seat.seat-bottom { transform: translate(-50%, calc(-100% + 46px)); }
 .lobby-seat.empty { border: 1.5px dashed rgba(251, 227, 160, 0.45); background: var(--tint); border-radius: 14px; }
 .lobby-seat .nm { font-weight: 700; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lobby-seat .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
