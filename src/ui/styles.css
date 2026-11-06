@@ -331,6 +331,18 @@ input { font: inherit; }
 }
 .wordmark .en { font-family: var(--caps); font-weight: 700; letter-spacing: 0.5em; font-size: clamp(13px, 2.2cqw, 19px); color: var(--gold-hi); margin-top: 6px; padding-left: 0.5em; }
 .tagline { color: var(--ink); opacity: 0.85; text-align: center; max-width: 420px; line-height: 1.45; font-size: 15px; }
+/* laptops (wide but short): a smaller fan and title and tighter spacing, so everything down to the links fits
+   without scrolling; phones scroll as before */
+@media (min-width: 721px) and (max-height: 960px) {
+  .home { padding-top: 18px; padding-bottom: 14px; }
+  .home-inner { gap: 9px; }
+  /* the whole fan shrinks from its bottom edge; the negative margin gives back the space it no longer uses */
+  .logo-fan { scale: 0.72; transform-origin: 50% 100%; margin-top: -44px; }
+  .wordmark .zh { font-size: clamp(56px, 8.5cqh, 96px); }
+  .wordmark .en { margin-top: 2px; }
+  .tagline { font-size: 14px; line-height: 1.35; }
+  .mode-cards { margin-top: 2px; }
+}
 .name-row { display: flex; align-items: center; gap: 12px; }
 .name-row .input { width: 190px; }
 .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; margin-top: 6px; }
