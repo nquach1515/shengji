@@ -1300,7 +1300,7 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
     if (!latest || latest.id <= seen.current) return;
     seen.current = latest.id;
     setShown(latest);
-    const t = setTimeout(() => setShown(null), 4500);
+    const t = setTimeout(() => setShown(null), 3500);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestId]);
