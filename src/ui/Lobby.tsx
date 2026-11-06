@@ -72,7 +72,8 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                 <AnimatePresence mode="popLayout" initial={false}>
                   {seat ? (
                     <motion.div
-                      key={seat.name + seat.isBot}
+                      // keyed by seat occupant type, not name: renaming must not replay the enter/exit animation
+                      key={seat.isBot ? 'bot' : 'person'}
                       initial={{ scale: 0.6, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.6, opacity: 0 }}
@@ -145,6 +146,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                 onChange={(decks) => send({ type: 'settings', settings: { decks } })}
               />
             </div>
+            <div className="opt-note">{DECK_OPTIONS.find((d) => d.decks === (view.settings.decks ?? 2))!.note}</div>
             <DifficultyPicker id="lobby-diff" value={view.settings.difficulty ?? 'hard'} onChange={(difficulty) => send({ type: 'settings', settings: { difficulty } })} />
             <div className="opt-row">
               <span className="label">Pace</span>

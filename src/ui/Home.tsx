@@ -109,11 +109,28 @@ export function Segmented<T extends string | number>({
   onChange: (v: T) => void;
   id: string;
 }) {
+  // Show a pick at once and keep it until `value` catches up: in the lobby the value comes back from the host a
+  // moment later, and in between the pill used to jump back to the old choice first.
+  const [picked, setPicked] = useState<T | null>(null);
+  useEffect(() => {
+    if (picked === null) return;
+    if (picked === value) return setPicked(null);
+    const t = setTimeout(() => setPicked(null), 1500);
+    return () => clearTimeout(t);
+  }, [picked, value]);
+  const shown = picked ?? value;
   return (
     <div className="seg">
       {options.map((o) => (
-        <button key={String(o.value)} className={o.value === value ? 'on' : ''} onClick={() => onChange(o.value)}>
-          {o.value === value && (
+        <button
+          key={String(o.value)}
+          className={o.value === shown ? 'on' : ''}
+          onClick={() => {
+            setPicked(o.value);
+            onChange(o.value);
+          }}
+        >
+          {o.value === shown && (
             <motion.div layoutId={`seg-${id}`} className="pill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
           )}
           <span>{o.label}</span>
