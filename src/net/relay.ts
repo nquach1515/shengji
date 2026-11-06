@@ -3,7 +3,14 @@
  * to it over a WebSocket, which works through VPNs and work networks that block browser-to-browser WebRTC.
  * The relay only forwards messages; the game still runs in the host's browser.
  */
-export const RELAY_URL: string = import.meta.env.VITE_RELAY_URL ?? 'wss://shengji-relay.nquach1515.workers.dev';
+const SITE_DOMAIN = 'shengji-tractor.com';
+/**
+ * On shengji-tractor.com the relay answers on the same host (the site's Worker passes /room/* to it), so a network
+ * that lets the page load lets the game connect; elsewhere (e.g. GitHub Pages) the relay's own workers.dev address.
+ */
+const sameHost = typeof location !== 'undefined' && (location.hostname === SITE_DOMAIN || location.hostname.endsWith(`.${SITE_DOMAIN}`));
+export const RELAY_URL: string =
+  import.meta.env.VITE_RELAY_URL ?? (sameHost ? `wss://${location.host}` : 'wss://shengji-relay.nquach1515.workers.dev');
 
 const PING_MS = 25000;
 
