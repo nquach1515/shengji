@@ -1,0 +1,9 @@
+// Cloudflare deploy for the game site (the relay has its own config in relay/wrangler.toml).
+// Build with `npm run build`, then `npx wrangler deploy` uploads dist/ as static files.
+{
+  "name": "shengji",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
