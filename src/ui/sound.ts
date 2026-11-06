@@ -120,17 +120,42 @@ function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: num
 const MASTER = 0.45;
 
 export const sfx = {
-  /** A play (any number of cards) set down on the felt: one soft, muffled tap. */
+  /**
+   * A play set down on the felt, in three layers: a crisp edge snap, a soft felt body and a low touch for weight.
+   * Tone, length and level vary a little each time so a run of plays doesn't sound like one sample on repeat.
+   */
   card() {
     play((a, out, t) => {
-      burst(a, out, t, 0.09, 900 + Math.random() * 200, 0.5, 0.22, 'lowpass');
-      tone(a, out, t, 120, 0.08, 0.055, 'sine', 0.008, 80);
+      const v = () => 0.85 + Math.random() * 0.3;
+      burst(a, out, t, 0.018 * v(), 2600 * v(), 1.4, 0.16 * v(), 'bandpass'); // edge snap
+      burst(a, out, t + 0.002, 0.075 * v(), 750 * v(), 0.7, 0.24 * v(), 'lowpass'); // felt body
+      tone(a, out, t, 115 * v(), 0.06, 0.05, 'sine', 0.004, 70); // low touch
     }, MASTER);
   },
-  /** A card sliding into your hand while dealing: a quiet, short brush (slightly varied so it doesn't drone). */
+  /**
+   * A card flicked into your hand while dealing: a short swish that sweeps from bright to soft, quieter than a play
+   * and slightly different each time so a whole deal doesn't drone.
+   */
   deal() {
     play((a, out, t) => {
-      burst(a, out, t, 0.05, 1400 + Math.random() * 500, 0.6, 0.1, 'bandpass');
+      const v = () => 0.85 + Math.random() * 0.3;
+      const dur = 0.05 * v();
+      const src = a.createBufferSource();
+      src.buffer = noiseBuffer(a);
+      src.playbackRate.value = v();
+      const f = a.createBiquadFilter();
+      f.type = 'bandpass';
+      f.Q.value = 1.1;
+      f.frequency.setValueAtTime(4200 * v(), t);
+      f.frequency.exponentialRampToValueAtTime(1500 * v(), t + dur);
+      const g = a.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.11 * v(), t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(f).connect(g).connect(out);
+      src.start(t, Math.random() * 0.3);
+      src.stop(t + dur + 0.02);
+      burst(a, out, t + dur * 0.8, 0.012, 1800 * v(), 1, 0.035, 'bandpass'); // the card landing
     }, MASTER);
   },
   /** Cards gathered to the trick winner: a quiet brush. */
