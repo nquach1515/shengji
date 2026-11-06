@@ -448,6 +448,20 @@ for (const decks of [2, 3]) {
   const m = takeLastTrickMove(redactFor(g, 3), 3);
   assert(m !== null && m.every((id) => id.includes('J16')), `last to play: trump with the big jokers for the 10 points (played ${m})`);
 }
+// You can override your own declaration with a stronger one of another suit: a single with a pair, and with
+// 3 decks a pair with a triple
+{
+  const g = newGame();
+  startRound(g);
+  g.hands[0] = [C('S', 2), C('H', 2), C('H', 2, 1)];
+  assert(declare(g, 0, ['0S2']) === null && g.trumpSuit === 'S', 'single 2♠ declares');
+  assert(declare(g, 0, ['0H2', '1H2']) === null && (g.trumpSuit as string) === 'H', 'own single 2♠ overridden by own pair 2♥2♥');
+  const g3 = newGame(2, 3);
+  startRound(g3);
+  g3.hands[1] = [C('S', 2), C('S', 2, 1), C('D', 2), C('D', 2, 1), C('D', 2, 2)];
+  assert(declare(g3, 1, ['0S2', '1S2']) === null && g3.trumpSuit === 'S', '3 decks: pair 2♠2♠ declares');
+  assert(declare(g3, 1, ['0D2', '1D2', '2D2']) === null && (g3.trumpSuit as string) === 'D', '3 decks: own pair overridden by own triple 2♦2♦2♦');
+}
 console.log('rule checks passed');
 
 // --- full games: team 0 (seats 0, 2) plays the strong bot, team 1 a simple baseline ---

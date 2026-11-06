@@ -235,13 +235,9 @@ export function declareOptions(s: GameState, seat: number): DeclareOption[] {
   }
   const cur = s.declaration;
   if (!cur) return opts;
-  return opts.filter((o) => {
-    if (cur.seat === seat) {
-      // You may only reinforce your own declaration (single -> pair -> triple of the same suit), or go to jokers.
-      return o.strength > cur.strength && (o.suit === cur.suit || o.suit === 'NT');
-    }
-    return o.strength > cur.strength;
-  });
+  // Anything stronger overrides, including your own declaration: a single with a pair of any suit (yours too), a
+  // pair with a triple with 3 decks, and so on up to jokers.
+  return opts.filter((o) => o.strength > cur.strength);
 }
 
 export function declare(s: GameState, seat: number, cardIds: string[]): Result {

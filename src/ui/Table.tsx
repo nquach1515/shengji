@@ -854,6 +854,25 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       {declareLabel(o, view.rules.decks)}
     </motion.button>
   ));
+  // More than two ways to declare don't fit in the bar on a phone: they go in a tray of compact chips above it.
+  const tray = view.declareOptions.length > 2 && (view.phase === 'dealing' || view.phase === 'declaring');
+  const declareChips = view.declareOptions.map((o) => {
+    const big = o.strength === 4 || o.strength === 7;
+    return (
+      <motion.button
+        key={o.cardIds.join()}
+        className={`decl-chip suit-${o.suit === 'NT' ? (big ? 'BJ' : 'SJ') : o.suit} ${lockedIn(o.strength, view.rules.decks) ? 'lock' : ''}`}
+        title={declareLabel(o, view.rules.decks)}
+        aria-label={declareLabel(o, view.rules.decks)}
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={() => send({ type: 'declare', cardIds: o.cardIds })}
+      >
+        {/* \uFE0E keeps ♥ a card symbol, not an emoji heart */}
+        {o.suit === 'NT' ? `${big ? '大' : '小'}${'★'.repeat(o.cardIds.length)}` : `${SUIT_GLYPH[o.suit]}\uFE0E`.repeat(o.cardIds.length)}
+      </motion.button>
+    );
+  });
 
   if (view.phase === 'dealing') {
     status = (
@@ -862,7 +881,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
         {view.declareOptions.length > 0 && <span className="wide-only" style={{ opacity: 0.7 }}>· you can declare trump</span>}
       </>
     );
-    buttons = declareButtons;
+    buttons = tray ? null : declareButtons;
   } else if (view.phase === 'declaring') {
     const passed = me !== null && view.passed[me];
     status = (
@@ -879,7 +898,7 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
     );
     buttons = (
       <>
-        {declareButtons}
+        {!tray && declareButtons}
         {!passed && (
           <button className="btn small" onClick={() => send({ type: 'pass' })}>
             {view.declaration ? 'Pass' : 'No declaration'}
@@ -989,6 +1008,14 @@ function ActionBar({ view, ctx, send, name, myTurn, iBury, selectedCount, playEr
       {!barError && me !== null && view.phase === 'playing' && (view.voids[me]?.length ?? 0) > 0 && (
         <div className="my-voids">
           You: <Voids voids={view.voids[me]} inline />
+        </div>
+      )}
+      {tray && (
+        <div className="declare-tray-anchor">
+          <div className="declare-tray">
+            <span className="label">Declare</span>
+            {declareChips}
+          </div>
         </div>
       )}
       {/* errors float just above the bar so they never change its size */}

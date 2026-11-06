@@ -957,3 +957,24 @@ input { font: inherit; }
 .review-cost { margin-left: auto; font-weight: 700; color: var(--gold-hi); white-space: nowrap; font-size: 13px; }
 .review-note { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--ink); }
 .review-note.dim { color: var(--ink-dim); font-size: 11px; text-align: center; }
+
+/* declare tray: more than two ways to declare, as compact chips above the action bar (it never resizes the bar) */
+.declare-tray-anchor { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 8px); display: flex; justify-content: center; z-index: 6; }
+.declare-tray {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; max-width: 100%;
+  padding: 7px 10px; border-radius: 16px; background: var(--bar); border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 24px -10px rgba(0, 0, 0, 0.8);
+}
+.declare-tray .label { margin-right: 2px; }
+.decl-chip {
+  min-width: 40px; padding: 6px 9px; border-radius: 10px; cursor: pointer; border: none;
+  background: linear-gradient(180deg, #fffaf0, var(--ivory-2)); color: var(--black);
+  font-size: 17px; line-height: 1; font-weight: 700; letter-spacing: -0.04em;
+  box-shadow: inset 0 0 0 1px rgba(190, 150, 80, 0.4), 0 4px 10px -4px rgba(0, 0, 0, 0.7);
+}
+.decl-chip.suit-H, .decl-chip.suit-D, .decl-chip.suit-BJ { color: var(--red); }
+:root[data-suits='4'] .decl-chip.suit-D { color: var(--diamond); }
+:root[data-suits='4'] .decl-chip.suit-C { color: var(--club); }
+.decl-chip.suit-SJ, .decl-chip.suit-BJ { font-size: 14px; }
+/* a declaration only jokers can override */
+.decl-chip.lock { box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px -2px rgba(232, 182, 76, 0.7); }
