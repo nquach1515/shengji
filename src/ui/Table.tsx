@@ -610,7 +610,15 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
   const done = trick.winner !== null;
   const winPos = done ? posOf(trick.winner!, view.you) : null;
   return (
-    <div className="trick-area">
+    // The fade is on one layer around the whole trick, so the plays fade as a single pile instead of showing
+    // through each other where they overlap. Keyed by trick, so the next one starts fully visible.
+    <motion.div
+      key={view.tricksPlayed}
+      className="trick-area"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: winPos ? 0 : 1 }}
+      transition={winPos ? { delay: 0.9, duration: 0.35, ease: [0.4, 0, 1, 1] } : { duration: 0 }}
+    >
       {trick.plays.map((p) => {
         const pos = posOf(p.seat, view.you);
         const side = pos === 'left' || pos === 'right';
@@ -618,13 +626,16 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
         const from = seatPoint(pos, size);
         const gone = winPos ? seatPoint(winPos, size) : null;
         return (
-          // Outer layer: sweeps the finished trick to the winner after a pause.
+          // Outer layer: after a pause, the finished trick glides together towards the winner, shrinking and fading
+          // out on the way. It stops well short of the winner's seat so it never slides under the hand or the bars,
+          // and the motion eases in and out (a hard ease-in made the last frames leap).
           <motion.div
             key={`${view.tricksPlayed}-${p.seat}`}
             className="trick-anchor"
-            initial={{ x: 0, y: 0, opacity: 1 }}
-            animate={gone ? { x: gone.x * 0.85 - at.x, y: gone.y * 0.85 - at.y, opacity: 0 } : { x: 0, y: 0, opacity: 1 }}
-            transition={gone ? { delay: 0.8, duration: 0.5, ease: [0.5, 0, 0.75, 0] } : { duration: 0 }}
+            // the scale also pulls the play's own offset in, so this lands every play on the same point
+            initial={{ x: 0, y: 0, scale: 1 }}
+            animate={gone ? { x: gone.x * 0.5 - at.x * 0.7, y: gone.y * 0.5 - at.y * 0.7, scale: 0.7 } : { x: 0, y: 0, scale: 1 }}
+            transition={gone ? { delay: 0.75, duration: 0.5, ease: [0.45, 0, 0.3, 1] } : { duration: 0 }}
           >
             {/* Inner layer: every card, including the last one, flies in from its player and lands. */}
             <motion.div
@@ -651,7 +662,7 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
           </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
 
