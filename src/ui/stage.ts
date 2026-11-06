@@ -24,8 +24,20 @@ export function useStageSize(): Stage {
   const [stage, setStage] = useState(measure);
   useEffect(() => {
     const onResize = () => setStage(measure());
+    // iOS Safari often changes the visible height (keyboard, toolbars) without a window resize event once they go
+    // away again, which left the stage at a stale, shorter height: listen to the visual viewport too, and check
+    // again shortly after the keyboard closes or the phone turns
+    const later = () => setTimeout(onResize, 350);
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', later);
+    window.addEventListener('focusout', later);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', later);
+      window.removeEventListener('focusout', later);
+    };
   }, []);
   return stage;
 }

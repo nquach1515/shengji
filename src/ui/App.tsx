@@ -83,7 +83,9 @@ export function App() {
     <StageContext.Provider value={stage}>
       <DisplayProvider>
       <div className="felt" />
-      <div className="stage" style={{ width: stage.w, height: stage.h, transform: `scale(${stage.scale})` }}>
+      {/* phones (scale 1) take the full height from CSS, which the browser keeps right as toolbars and the keyboard
+          come and go; scaled layouts need the measured size */}
+      <div className="stage" style={stage.scale === 1 ? { inset: 0 } : { width: stage.w, height: stage.h, transform: `scale(${stage.scale})` }}>
       <AnimatePresence mode="wait">
         <motion.div
           key={key}
