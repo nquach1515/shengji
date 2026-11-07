@@ -3,6 +3,7 @@
  * The AudioContext is created on the first user gesture (browsers block audio before that).
  */
 import { useSyncExternalStore } from 'react';
+import { cardDeal, cardPlay } from './cardSounds';
 
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
@@ -85,23 +86,6 @@ function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume
   build(a, out, a.currentTime + 0.005);
 }
 
-/** Filtered noise burst — the "snap" of a card. */
-function burst(a: AudioContext, out: AudioNode, t: number, dur: number, freq: number, q: number, gain: number, type: BiquadFilterType = 'bandpass') {
-  const src = a.createBufferSource();
-  src.buffer = noiseBuffer(a);
-  const f = a.createBiquadFilter();
-  f.type = type;
-  f.frequency.value = freq;
-  f.Q.value = q;
-  const g = a.createGain();
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(gain, t + 0.004);
-  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(out);
-  src.start(t);
-  src.stop(t + dur + 0.02);
-}
-
 function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: number, gain: number, type: OscillatorType = 'sine', attack = 0.01, toFreq?: number) {
   const o = a.createOscillator();
   o.type = type;
@@ -120,43 +104,13 @@ function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: num
 const MASTER = 0.45;
 
 export const sfx = {
-  /**
-   * A play set down on the felt, in three layers: a crisp edge snap, a soft felt body and a low touch for weight.
-   * Tone, length and level vary a little each time so a run of plays doesn't sound like one sample on repeat.
-   */
+  /** A card slapped down on the felt (see cardSounds.ts). */
   card() {
-    play((a, out, t) => {
-      const v = () => 0.85 + Math.random() * 0.3;
-      burst(a, out, t, 0.018 * v(), 2600 * v(), 1.4, 0.16 * v(), 'bandpass'); // edge snap
-      burst(a, out, t + 0.002, 0.075 * v(), 750 * v(), 0.7, 0.24 * v(), 'lowpass'); // felt body
-      tone(a, out, t, 115 * v(), 0.06, 0.05, 'sine', 0.004, 70); // low touch
-    }, MASTER);
+    play((a, out, t) => cardPlay(a, out, noiseBuffer(a), t), MASTER * 0.7);
   },
-  /**
-   * A card flicked into your hand while dealing: a short swish that sweeps from bright to soft, quieter than a play
-   * and slightly different each time so a whole deal doesn't drone.
-   */
+  /** A card flicked across the table while dealing: quieter than a play, since a deal is a hundred of them. */
   deal() {
-    play((a, out, t) => {
-      const v = () => 0.85 + Math.random() * 0.3;
-      const dur = 0.05 * v();
-      const src = a.createBufferSource();
-      src.buffer = noiseBuffer(a);
-      src.playbackRate.value = v();
-      const f = a.createBiquadFilter();
-      f.type = 'bandpass';
-      f.Q.value = 1.1;
-      f.frequency.setValueAtTime(4200 * v(), t);
-      f.frequency.exponentialRampToValueAtTime(1500 * v(), t + dur);
-      const g = a.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.11 * v(), t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      src.connect(f).connect(g).connect(out);
-      src.start(t, Math.random() * 0.3);
-      src.stop(t + dur + 0.02);
-      burst(a, out, t + dur * 0.8, 0.012, 1800 * v(), 1, 0.035, 'bandpass'); // the card landing
-    }, MASTER);
+    play((a, out, t) => cardDeal(a, out, noiseBuffer(a), t), MASTER * 0.4);
   },
   /** Cards gathered to the trick winner: a quiet brush. */
   sweep() {
