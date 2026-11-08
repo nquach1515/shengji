@@ -563,9 +563,11 @@ input { font: inherit; }
 .seat-plate.active::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   box-shadow: 0 0 26px 2px rgba(232, 182, 76, 0.5);
-  animation: glow 1.6s ease-in-out infinite; will-change: opacity;
+  /* stepped at ~20 fps: the soft halo looks the same, and the GPU draws a third as many frames all game */
+  animation: glow 1.6s steps(4) infinite; will-change: opacity;
 }
-@keyframes glow { 50% { opacity: 0; } }
+/* the ease-in-out curve, as keyframes: the steps run at ~20 fps (8 segments x 4 steps per 1.6 s) */
+@keyframes glow { 0%, 100% { opacity: 1; } 12.5%, 87.5% { opacity: 0.9; } 25%, 75% { opacity: 0.5; } 37.5%, 62.5% { opacity: 0.1; } 50% { opacity: 0; } }
 .seat-plate .nm { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .seat-plate .sub { font-size: 12px; color: var(--ink-dim); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
 .cc::before { content: ''; display: inline-block; width: 7px; height: 10px; border-radius: 1.5px; background: linear-gradient(160deg, var(--back-a), var(--back-b)); box-shadow: 0 0 0 1px #fbf1dc; margin-right: 5px; vertical-align: -1px; }

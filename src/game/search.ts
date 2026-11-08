@@ -528,13 +528,31 @@ export interface MoveReview {
   cost: number;
 }
 
+/** Could any option still turn out to beat option `mine` by `minCost` points? (paired upper bound, z = 2.5) */
+function couldCost(scores: number[][], mine: number, minCost: number): boolean {
+  const n = scores[0].length;
+  return scores.some((xs, i) => {
+    if (i === mine) return false;
+    let t = 0;
+    let t2 = 0;
+    for (let k = 0; k < n; k++) {
+      const d = xs[k] - scores[mine][k];
+      t += d;
+      t2 += d * d;
+    }
+    const m = t / n;
+    const se = Math.sqrt(Math.max(0, t2 / n - m * m) / Math.max(1, n - 1));
+    return m + 2.5 * se >= minCost;
+  });
+}
+
 /**
  * Post-round review: was `played` clearly worse than another sensible move? Scores every option on the same sampled
  * deals (consistent with what `seat` knew, never the real hands), playing the rest of the round out with the
  * heuristic, in points for `seat`'s team. Reports the best option only when it beats the move made by at least
  * `minCost` points and by more than twice the standard error, so noise isn't reported as a mistake.
  */
-export function reviewMove(s: GameState, seat: number, played: string[], budgetMs = 800, minSamples = 24, minCost = 5): MoveReview | null {
+export function reviewMove(s: GameState, seat: number, played: string[], budgetMs = 800, minSamples = 24, minCost = 5, stopEarly = true): MoveReview | null {
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
   const options = moveOptions(s, seat);
   let mine = options.findIndex((m) => keyOf(m) === keyOf(played));
@@ -549,6 +567,9 @@ export function reviewMove(s: GameState, seat: number, played: string[], budgetM
     while (scores[0].length < 200 && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
       const d = determinize(s, seat);
       options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m)));
+      // battery: stop once no option can plausibly beat the move made by `minCost` (most moves aren't mistakes)
+      const n = scores[0].length;
+      if (stopEarly && n >= minSamples && n % 8 === 0 && !couldCost(scores, mine, minCost)) break;
     }
   } catch {
     if (scores[0].length < minSamples) return null;
