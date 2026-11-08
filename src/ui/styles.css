@@ -557,8 +557,15 @@ input { font: inherit; }
 .seat.left { left: calc((100% - 100cqw) / 2 + 28px); top: 50%; transform: translateY(-50%); }
 .seat.right { right: calc((100% - 100cqw) / 2 + 28px); top: 50%; transform: translateY(-50%); }
 .seat-plate { display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 8px; min-width: 150px; position: relative; }
-.seat-plate.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 26px 2px rgba(232, 182, 76, 0.5); animation: glow 1.6s ease-in-out infinite; }
-@keyframes glow { 50% { box-shadow: 0 0 0 1px var(--gold), 0 0 10px 0 rgba(232, 182, 76, 0.25); } }
+/* the turn glow pulses by fading a pre-drawn halo (opacity runs on the GPU); animating box-shadow itself repainted
+   the plate every frame for the whole game */
+.seat-plate.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 10px 0 rgba(232, 182, 76, 0.25); }
+.seat-plate.active::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 26px 2px rgba(232, 182, 76, 0.5);
+  animation: glow 1.6s ease-in-out infinite; will-change: opacity;
+}
+@keyframes glow { 50% { opacity: 0; } }
 .seat-plate .nm { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .seat-plate .sub { font-size: 12px; color: var(--ink-dim); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
 .cc::before { content: ''; display: inline-block; width: 7px; height: 10px; border-radius: 1.5px; background: linear-gradient(160deg, var(--back-a), var(--back-b)); box-shadow: 0 0 0 1px #fbf1dc; margin-right: 5px; vertical-align: -1px; }
@@ -608,7 +615,7 @@ input { font: inherit; }
 .action-bar .status .err-inline{color:#ffb0a8;font-size:13px;overflow:hidden;text-overflow:ellipsis}
 .action-bar .buttons{display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .hand{position:relative;width:min(1640px,calc(100cqw - 40px));touch-action:none;margin-bottom:4px}
-.hand .slot{position:absolute;left:0;top:0;cursor:pointer}
+.hand .slot{position:absolute;left:0;top:0;cursor:pointer;will-change:transform}
 .countdown{width:26px;height:26px;flex-shrink:0}
 .spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.15);border-top-color:var(--gold);animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -832,7 +839,7 @@ input { font: inherit; }
 .voids.plate .out-label { font-size: 11px; color: var(--ink-dim); }
 
 /* hand hover lift: plain CSS, only with a real mouse, so it can never get stuck */
-.hand .lift { transition: transform 0.15s ease; }
+.hand .lift { transition: transform 0.15s ease; will-change: transform; }
 @media (hover: hover) and (pointer: fine) {
   .hand .slot:hover .lift:not(.sel) { transform: translateY(-12px); }
 }
