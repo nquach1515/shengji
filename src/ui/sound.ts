@@ -104,7 +104,7 @@ function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: num
 const MASTER = 0.45;
 
 export const sfx = {
-  /** A card slapped down on the felt (see cardSounds.ts). */
+  /** A card played: a swish and a light tap (see cardSounds.ts). */
   card() {
     play((a, out, t) => cardPlay(a, out, noiseBuffer(a), t), MASTER * 0.7);
   },

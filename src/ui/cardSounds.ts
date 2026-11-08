@@ -30,15 +30,33 @@ function noiseHit(
   src.stop(t + attack + o.decay + 0.02);
 }
 
+/** Filtered noise whose pitch glides from `from` to `to`, fading out over `dur`. */
+function swish(a: BaseAudioContext, out: AudioNode, noise: AudioBuffer, t: number, o: { from: number; to: number; dur: number; gain: number; q: number }) {
+  const src = a.createBufferSource();
+  src.buffer = noise;
+  const f = a.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = o.q;
+  f.frequency.setValueAtTime(o.from, t);
+  f.frequency.exponentialRampToValueAtTime(o.to, t + o.dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0005, t);
+  g.gain.linearRampToValueAtTime(o.gain, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0005, t + o.dur);
+  src.connect(f).connect(g).connect(out);
+  src.start(t, Math.random() * 0.4);
+  src.stop(t + o.dur + 0.03);
+}
+
 /**
- * A card slapped down on the felt: a crisp papery crack, the card's face flapping flat, a soft thud from the table
- * underneath, and a faint second tick as it settles.
+ * A card played: the deal sound in reverse — a quick downward swish as the card slides out of the hand, then a
+ * light tap as it lands.
  */
 export function cardPlay(a: BaseAudioContext, out: AudioNode, noise: AudioBuffer, t: number) {
-  noiseHit(a, out, noise, t, { type: 'highpass', freq: 2200 * vary(), q: 0.8, gain: 0.55 * vary(), decay: 0.022 * vary() }); // crack
-  noiseHit(a, out, noise, t + 0.002, { type: 'bandpass', freq: 1300 * vary(), q: 1.3, gain: 0.45 * vary(), attack: 0.002, decay: 0.06 * vary() }); // flap
-  noiseHit(a, out, noise, t, { type: 'lowpass', freq: 260 * vary(), q: 0.9, gain: 0.7 * vary(), attack: 0.002, decay: 0.07 }); // thud
-  noiseHit(a, out, noise, t + 0.014 * vary(0.3), { type: 'highpass', freq: 3500, gain: 0.12 * vary(), decay: 0.01 }); // settle
+  const d = 0.05 * vary();
+  swish(a, out, noise, t, { from: 4200 * vary(), to: 1500 * vary(), dur: d, gain: 0.26 * vary(), q: 1.4 });
+  noiseHit(a, out, noise, t + d * 0.8, { type: 'highpass', freq: 2300 * vary(), gain: 0.32 * vary(), decay: 0.014 }); // tap
+  noiseHit(a, out, noise, t + d * 0.8, { type: 'lowpass', freq: 280 * vary(), gain: 0.45 * vary(), attack: 0.002, decay: 0.05 }); // soft thud
 }
 
 /**
