@@ -65,8 +65,13 @@ function audio(): AudioContext | null {
   }
   // 'suspended' after autoplay blocking, 'interrupted' (Safari) after the page was in the background
   if (ctx.state !== 'running' && ctx.state !== 'closed') {
+    // Ask again on every call, never just wait on an earlier request: iOS leaves a resume asked for outside a tap
+    // pending forever, and only a resume called inside a tap goes through.
     const a = ctx;
-    resuming ??= a.resume().catch(() => {}).finally(() => (resuming = null));
+    const r: Promise<void> = a.resume().catch(() => {}).finally(() => {
+      if (resuming === r) resuming = null;
+    });
+    resuming = r;
     scheduleIdle();
   }
   return ctx;
@@ -77,6 +82,9 @@ function audio(): AudioContext | null {
 if (typeof window !== 'undefined') {
   const unlock = () => audio();
   window.addEventListener('pointerdown', unlock);
+  // iOS only lets audio start on a touch's end or a click, not on its start
+  window.addEventListener('touchend', unlock);
+  window.addEventListener('click', unlock);
   window.addEventListener('keydown', unlock);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
