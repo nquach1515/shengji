@@ -481,7 +481,7 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
       </ul>
       <h3>Trump</h3>
       <ul>
-        <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump. With 3 decks, any triple beats any pair, and no trump takes three of the same joker.</li>
+        <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump. With 3 decks, any triple beats any pair, and no trump takes three of the same joker. In the first round, the first player to declare becomes dealer; a stronger declaration after that only changes the trump suit.</li>
         <li>Trump order: big joker, small joker, level card in trump suit, other level cards, then trump suit A down to 2.</li>
         <li>The dealer picks up the kitty (8 cards, or 10 with 3 decks) and buries the same number.</li>
       </ul>

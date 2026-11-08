@@ -93,6 +93,8 @@ export interface GameState {
   round: number;
   levels: [number, number];
   dealer: number | null;
+  /** round 1: the first seat to declare trump — they deal, whatever overturns follow */
+  firstDeclarer?: number | null;
   trumpRank: number;
   trumpSuit: TrumpSuit | null;
   deck: Card[];
@@ -140,6 +142,7 @@ export function newGame(startLevel = 2, decks = 2): GameState {
     round: 0,
     levels: [startLevel, startLevel],
     dealer: null,
+    firstDeclarer: null,
     trumpRank: startLevel,
     trumpSuit: null,
     deck: [],
@@ -179,6 +182,7 @@ export function startRound(s: GameState): void {
   s.trumpSuit = null;
   s.dealTo = s.dealer ?? 0;
   s.declaration = null;
+  s.firstDeclarer = null;
   s.passed = [false, false, false, false];
   s.trick = null;
   s.lastTrick = null;
@@ -247,6 +251,7 @@ export function declare(s: GameState, seat: number, cardIds: string[]): Result {
   if (!opt) return "You can't declare that";
   const cards = s.hands[seat].filter((c) => opt.cardIds.includes(c.id));
   s.declaration = { seat, cards, suit: opt.suit, strength: opt.strength };
+  s.firstDeclarer ??= seat;
   s.trumpSuit = opt.suit;
   s.passed = s.passed.map(() => false);
   if (s.phase === 'declaring') s.declareDeadline = Math.max(s.declareDeadline, Date.now() + 3000);
@@ -262,7 +267,8 @@ export function pass(s: GameState, seat: number): Result {
 export function finalizeDeclaration(s: GameState): void {
   if (s.declaration) {
     s.trumpSuit = s.declaration.suit;
-    if (s.dealer === null) s.dealer = s.declaration.seat;
+    // first round: the first to declare deals; an overturn only changes the trump suit
+    if (s.dealer === null) s.dealer = s.firstDeclarer ?? s.declaration.seat;
   } else {
     // Nobody declared: flip the kitty — the first suited card picks trump.
     const flip = s.kitty.find((c) => c.suit !== 'J');
