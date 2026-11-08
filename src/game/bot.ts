@@ -463,7 +463,8 @@ export const BURY_PARAMS: BuryParams = { len: 10, value: 1, points: 2, pair: 80,
 export const BURY_PARAMS_3: BuryParams = { len: 6, value: 2, points: 4, pair: 60, triple: 60, ace: 80 };
 export const buryParamsFor = (decks: number) => (decks === 3 ? BURY_PARAMS_3 : BURY_PARAMS);
 
-export function botBury(s: GameState, seat: number, p: BuryParams = buryParamsFor(decksOf(s))): string[] {
+/** The `count` cards the formula would give up first (normally a kitty's worth). */
+export function botBury(s: GameState, seat: number, p: BuryParams = buryParamsFor(decksOf(s)), count = rulesOf(s).kitty): string[] {
   const ctx = ctxOf(s);
   const hand = s.hands[seat];
   const counts = new Map<string, number>();
@@ -484,7 +485,7 @@ export function botBury(s: GameState, seat: number, p: BuryParams = buryParamsFo
   return hand
     .slice()
     .sort((a, b) => cost(a) - cost(b))
-    .slice(0, rulesOf(s).kitty)
+    .slice(0, count)
     .map((c) => c.id);
 }
 

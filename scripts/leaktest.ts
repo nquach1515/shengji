@@ -7,7 +7,7 @@ import { botBury, botDeclare, botPlay } from '../src/game/bot';
 import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, newGame, play, startRound } from '../src/game/engine';
 import { decisionContext, moveFeatures } from '../src/game/features';
 import { redactFor } from '../src/game/info';
-import { determinize, moveOptions, searchPlay } from '../src/game/search';
+import { determinize, moveOptions, searchBury, searchPlay } from '../src/game/search';
 import { READ_PARAMS } from '../src/game/inference';
 import { learnedPlay } from '../src/game/policy';
 
@@ -15,7 +15,7 @@ const nm = () => '';
 const games = Number(process.argv[2] ?? 40);
 const decks = Number(process.argv[3] ?? 2);
 const same = (a: string[], b: string[]) => [...a].sort().join() === [...b].sort().join();
-const checks = { plays: 0, learned: 0, bury: 0, declare: 0, features: 0, search: 0 };
+const checks = { plays: 0, learned: 0, bury: 0, buryPlans: 0, declare: 0, features: 0, search: 0 };
 const leaks: string[] = [];
 
 /** Another possible world: same public information, hidden cards re-dealt (seat's own hand untouched). */
@@ -39,6 +39,13 @@ for (let g = 0; g < games; g++) {
   const buryReal = botBury(s, dealer);
   checks.bury++;
   if (!same(buryReal, botBury(redactFor(s, dealer), dealer))) leaks.push('bury differs on redacted state');
+  // the bury search (Hard bots) must run on the redacted state alone and give a legal burial
+  if (Math.random() < 0.25) {
+    checks.buryPlans++;
+    const searched = searchBury(redactFor(s, dealer), dealer, 4);
+    const test = structuredClone(s);
+    if (bury(test, dealer, searched)) leaks.push('bury search gave an illegal burial on redacted state');
+  }
   bury(s, dealer, buryReal);
   while (s.phase === 'playing') {
     const seat = s.turn;
@@ -77,7 +84,7 @@ for (let g = 0; g < games; g++) {
 }
 console.log(
   `checked ${checks.plays} heuristic + ${checks.learned} learned-model moves (each vs. redacted and re-dealt worlds), ${checks.features} move-feature vectors, ` +
-    `${checks.bury} burials, ${checks.declare} declaration decisions, ${checks.search} searches on redacted state`,
+    `${checks.bury} burials (${checks.buryPlans} searched), ${checks.declare} declaration decisions, ${checks.search} searches on redacted state`,
 );
 if (leaks.length) {
   console.log(`LEAKS FOUND: ${leaks.length}`);

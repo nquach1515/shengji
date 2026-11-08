@@ -8,9 +8,9 @@
  * the same set of deals, so the comparison isn't swamped by luck of the deal. The bot never looks at real
  * hidden hands — only at random guesses of them.
  */
-import { botPlay, candidates, keepTriples, splitWins } from './bot';
+import { botBury, botPlay, buryParamsFor, candidates, keepTriples, splitWins } from './bot';
 import { Card, cardKey, makeDecks, points, shuffle, totalPoints } from './cards';
-import { checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
+import { bury, checkPlay, collectTrick, ctxOf, DeckRules, decksOf, GameState, play, roundLevels, rulesFor, rulesOf } from './engine';
 import { cardValue, decompose, effSuit, isTrump, matchShape, trickWinner, tuplesOf, validateFollow } from './rules';
 import { playReader, ReadParams } from './inference';
 import { knownLocations } from './info';
@@ -27,6 +27,42 @@ const SUITS = ['S', 'H', 'C', 'D', 'T'];
 
 export function cloneState(s: GameState): GameState {
   return structuredClone(s);
+}
+
+/**
+ * Hidden cards aren't dealt evenly: the dealer picks the kitty up and buries, so trumps collect in the dealer's hand
+ * and the kitty holds little but low side cards. 1,500 bot rounds: trumps are 0% of the kitty and 45% of the dealer's
+ * hand (28% of all cards; 2 decks), 0% and 43% (32%; 3 decks). Each number is the chance of steering a card that way
+ * while dealing a guess; none is 1, because people do sometimes bury trumps. Uses only what's public.
+ * Off live: the guesses got better, but the bots didn't measurably (duplicate matches, 2026-11-07: +0.43 ± 1.35
+ * points/round over 450 deals with 2 decks, +0.58 ± 1.75 over 630 with 3), so DEAL_BIAS is for tests only.
+ */
+export interface DealBias {
+  /** a trump goes to the kitty only if nobody else can take it */
+  kittyTrump: number;
+  /** the same for a side-suit point card */
+  kittyPoints: number;
+  /** the same for a card matching one already in the kitty */
+  kittyPairs: number;
+  /** a trump is offered to the dealer first */
+  dealerTrump: number;
+}
+
+export const NO_DEAL_BIAS: DealBias = { kittyTrump: 0, kittyPoints: 0, kittyPairs: 0, dealerTrump: 0 };
+export const DEAL_BIAS: Record<2 | 3, DealBias> = {
+  2: { kittyTrump: 0.97, kittyPoints: 0.65, kittyPairs: 0.9, dealerTrump: 0.4 },
+  3: { kittyTrump: 0.97, kittyPoints: 0.85, kittyPairs: 0.9, dealerTrump: 0.25 },
+};
+
+let biasOverride: DealBias | null = null;
+/** Runs `fn` with other deal biases (for comparing settings in the test scripts). */
+export function withDealBias<T>(bias: DealBias, fn: () => T): T {
+  biasOverride = bias;
+  try {
+    return fn();
+  } finally {
+    biasOverride = null;
+  }
 }
 
 /** A random deal of the hidden cards consistent with what `seat` knows. */
@@ -57,6 +93,7 @@ function deal(s: GameState, seat: number, useCopies: boolean): GameState | null 
       return { who: o as number | 'kitty', cap: s.hands[o].length - got.length, ok: (suit: string) => !s.voids[o].includes(suit), got, max };
     });
   if (seat !== s.dealer) recips.push({ who: 'kitty', cap: s.kitty.length, ok: () => true, got: [], max: {} as Record<string, number> });
+  const bias = biasOverride ?? NO_DEAL_BIAS;
   const cnt: Record<string, number> = Object.fromEntries(SUITS.map((x) => [x, 0]));
   for (const c of pool) cnt[effSuit(c, ctx)]++;
   // Supply/demand (Hall) condition: every set of suits must fit into the recipients allowed to hold them.
@@ -78,7 +115,16 @@ function deal(s: GameState, seat: number, useCopies: boolean): GameState | null 
     const key = cardKey(c);
     const fits = (r: (typeof recips)[number]) =>
       r.max[suit] === undefined || r.got.filter((g) => cardKey(g) === key).length < r.max[suit];
-    for (const r of shuffle(recips.filter((r) => r.cap > 0 && r.ok(suit) && fits(r)))) {
+    const kittyHas = recips.some((r) => r.who === 'kitty' && r.got.some((g) => cardKey(g) === key));
+    const avoidKitty = Math.max(suit === 'T' ? bias.kittyTrump : points(c) > 0 ? bias.kittyPoints : 0, kittyHas ? bias.kittyPairs : 0);
+    const kittyLast = Math.random() < avoidKitty ? 1 : 0;
+    const dealerFirst = suit === 'T' && Math.random() < bias.dealerTrump ? -1 : 0;
+    // who to offer the card to first: at random, then nudged by how a dealer really leaves the hidden cards
+    const order = shuffle(recips.filter((r) => r.cap > 0 && r.ok(suit) && fits(r))).sort((a, b) => rank(a) - rank(b));
+    function rank(r: (typeof recips)[number]) {
+      return (r.who === 'kitty' ? kittyLast : 0) + (r.who === s.dealer ? dealerFirst : 0);
+    }
+    for (const r of order) {
       r.cap--;
       if (feasible()) {
         r.got.push(c);
@@ -189,11 +235,41 @@ function choose(scores: number[][], start: number, margin: (se: number) => numbe
 }
 
 /**
+ * Early stopping, to save battery: once `best` is the pick and no other option's paired results come within
+ * `z` standard errors of overtaking it (the margin `choose` needs), more deals would almost never change the move.
+ */
+export const SETTLED_Z = 2;
+/** Deals sampled by searchPlay, for measuring what early stopping saves (test scripts). */
+export const searchStats = { deals: 0, searches: 0 };
+export function settled(scores: number[][], best: number, z = SETTLED_Z): boolean {
+  const n = scores[0].length;
+  if (n < 2) return false;
+  for (let i = 0; i < scores.length; i++) {
+    if (i === best) continue;
+    const diff = scores[i].map((x, k) => x - scores[best][k]);
+    const m = diff.reduce((t, x) => t + x, 0) / n;
+    const se = Math.sqrt(diff.reduce((t, x) => t + (x - m) ** 2, 0) / Math.max(1, n - 1) / n);
+    if (m + z * se > Math.max(0.5, 1.5 * se)) return false;
+  }
+  return true;
+}
+
+/**
  * The search bot's move. `prior` is the move to keep unless the search finds a clearly better one (defaults to the
  * heuristic bot's choice). "Clearly better" is judged on paired results over the same sampled deals: the
  * alternative must win by more than 1.5 standard errors of the difference, so noise alone won't overturn the prior.
  */
-export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly = false, prior?: string[], levelWeight = 0, read?: ReadParams): string[] {
+export function searchPlay(
+  s: GameState,
+  seat: number,
+  samples = 20,
+  leadsOnly = false,
+  prior?: string[],
+  levelWeight = 0,
+  read?: ReadParams,
+  /** stop early once settled, after at least this many deals (the live bots' rule; for testing it) */
+  stopAfter?: number,
+): string[] {
   if (leadsOnly && s.trick!.plays.length > 0) return prior ?? botPlay(s, seat);
   const options = moveOptions(s, seat);
   const keyOf = (ids: string[]) => [...ids].sort().join(',');
@@ -207,12 +283,21 @@ export function searchPlay(s: GameState, seat: number, samples = 20, leadsOnly =
   }
   if (options.length === 1) return options[0];
   try {
-    const deals = Array.from({ length: samples }, () => determinize(s, seat));
-    const scores = options.map((m) => deals.map((d) => rollout(cloneState(d), seat, m, levelWeight)));
+    const deals: GameState[] = [];
+    const scores: number[][] = options.map(() => []);
+    const margin = (se: number) => (prior ? Math.max(0.5, 1.5 * se) : 0.5);
+    while (deals.length < samples) {
+      const d = determinize(s, seat);
+      deals.push(d);
+      options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
+      if (stopAfter !== undefined && !read && deals.length >= stopAfter && deals.length % 8 === 0 && settled(scores, choose(scores, start, margin))) break;
+    }
+    searchStats.deals += deals.length;
+    searchStats.searches++;
     const reader = playReader(s, seat, read);
     const logw = reader ? deals.map(reader) : undefined;
     // Hints (with a prior) need a significant win; the bots keep the simple margin they were tested with.
-    const best = choose(scores, start, (se) => (prior ? Math.max(0.5, 1.5 * se) : 0.5), logw);
+    const best = choose(scores, start, margin, logw);
     return options[best];
   } catch {
     return options[start];
@@ -249,12 +334,17 @@ export function searchPlayTimed(
   const scores: number[][] = options.map(() => []);
   const reader = playReader(s, seat, read);
   const logw: number[] = [];
+  const stopFloor = decksOf(s) === 2 ? Math.max(minSamples, 32) : undefined;
   try {
     while (scores[0].length < maxSamples && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
       const d = determinize(s, seat);
       const lw = reader ? reader(d) : 0;
       options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
       logw.push(lw);
+      // battery: once the choice is settled, stop (checked every 8 deals past 32). Tested neutral for 2 decks
+      // (450 duplicate deals); for 3 decks it leaned weaker, so it stays off there.
+      const n = scores[0].length;
+      if (!reader && stopFloor !== undefined && n >= stopFloor && n % 8 === 0 && settled(scores, choose(scores, start, (se) => Math.max(0.5, 1.5 * se)))) break;
     }
   } catch {
     if (scores[0].length < minSamples) return options[start];
@@ -263,6 +353,54 @@ export function searchPlayTimed(
   for (const x of scores) x.length = n;
   const best = choose(scores, start, (se) => Math.max(0.5, 1.5 * se), reader ? logw.slice(0, n) : undefined);
   return options[best];
+}
+
+/**
+ * Burials worth comparing: the formula's choice first, the formula with other priorities, and each side suit voided
+ * outright (the whole suit, topped up with the formula's cheapest other cards).
+ */
+export function buryOptions(s: GameState, seat: number): string[][] {
+  const ctx = ctxOf(s);
+  const hand = s.hands[seat];
+  const n = rulesOf(s).kitty;
+  const p = buryParamsFor(decksOf(s));
+  const base = botBury(s, seat, p);
+  const out = new Map<string, string[]>();
+  const add = (ids: string[]) => out.set([...ids].sort().join(','), ids);
+  add(base);
+  for (const v of [{ len: p.len * 2 }, { len: p.len / 2 }, { points: p.points * 3 }, { points: 0 }, { ace: 0 }]) add(botBury(s, seat, { ...p, ...v }));
+  const order = botBury(s, seat, p, hand.length);
+  const suits = new Map<string, string[]>();
+  for (const c of hand) if (!isTrump(c, ctx)) suits.set(c.suit, [...(suits.get(c.suit) ?? []), c.id]);
+  for (const ids of suits.values()) {
+    if (ids.length > n) continue;
+    add([...ids, ...order.filter((id) => !ids.includes(id))].slice(0, n));
+  }
+  return [...out.values()];
+}
+
+/** What to bury: the formula's choice, unless playing the round out on sampled deals clearly favours another option. */
+export function searchBury(s: GameState, seat: number, samples = 24): string[] {
+  const options = buryOptions(s, seat);
+  if (options.length === 1) return options[0];
+  try {
+    const deals = Array.from({ length: samples }, () => determinize(s, seat));
+    const scores = options.map((ids) =>
+      deals.map((deal) => {
+        const d = cloneState(deal);
+        if (bury(d, seat, ids)) throw new Error('bad burial');
+        while (d.phase === 'playing') {
+          const t = d.turn;
+          play(d, t, botPlay(d, t), noName);
+          if (d.trick!.winner !== null) collectTrick(d, noName);
+        }
+        return -attackerValue(d.result!.attackerPoints, LEVEL_WEIGHT, rulesOf(d));
+      }),
+    );
+    return options[choose(scores, 0, (se) => Math.max(0.5, 1.5 * se))];
+  } catch {
+    return options[0];
+  }
 }
 
 /**

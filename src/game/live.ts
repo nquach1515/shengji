@@ -7,7 +7,14 @@ import { decksOf, GameState } from './engine';
 import { learnedPlay } from './policy';
 import { feedLikelyMove, feedSafeMove, feedTrickMove, takeLastTrickMove, hopelessTrickMove, keepHighCards, noRiskyPointLead, noRiskyPointsMove, noUnderlead, moveOptions } from './search';
 
-export function liveMove(state: GameState, seat: number, search: (prior: string[]) => string[], opts = { feedSafe: true, takeLast: true }): string[] {
+export function liveMove(
+  state: GameState,
+  seat: number,
+  search: (prior: string[]) => string[],
+  opts = { feedSafe: true, takeLast: true },
+  /** the model that proposes the move (another one's weights, in the test scripts) */
+  propose: (s: GameState, seat: number) => string[] = learnedPlay,
+): string[] {
   const three = decksOf(state) === 3;
   const move =
     hopelessTrickMove(state, seat) ??
@@ -22,7 +29,7 @@ export function liveMove(state: GameState, seat: number, search: (prior: string[
     (three ? null : feedLikelyMove(state, seat)) ??
     // no points into a single-card trick our side will probably lose, no leading a point card that can be beaten,
     // and no underleading a side suit's top card (neutral in 2,000-deal matches, and it looks like a gift)
-    noRiskyPointLead(state, seat, noUnderlead(state, seat, noRiskyPointsMove(state, seat, search(learnedPlay(state, seat)))));
+    noRiskyPointLead(state, seat, noUnderlead(state, seat, noRiskyPointsMove(state, seat, search(propose(state, seat)))));
   return three ? move : keepHighCards(state, seat, move);
 }
 

@@ -115,6 +115,8 @@ export class HostController {
   /** the decision a bot is currently thinking about, so it isn't requested twice */
   private botThinking: string | null = null;
   private hintCache: { key: string; move: Promise<string[] | null> } | null = null;
+  /** the bot dealer's burial, being worked out in the bot worker */
+  private buryPlan: { key: string; ids: Promise<string[] | null> } | null = null;
 
   constructor(
     public code: string,
@@ -447,7 +449,24 @@ export class HostController {
         return;
       }
       case 'burying':
-        if (this.isBot(s.dealer!)) this.schedule(1400 * PACE[this.settings.pace].bot, () => bury(s, s.dealer!, botBury(redactFor(s, s.dealer!), s.dealer!)));
+        if (this.isBot(s.dealer!)) {
+          // the worker compares burials by playing the round out (searchBury); started once per round, it's usually
+          // done well before the pause is over
+          const dealer = s.dealer!;
+          const key = `${s.round}:${dealer}`;
+          // Hard bots search their burial; Easy and Normal keep the formula, as they don't search their play either
+          const hard = (this.settings.difficulty ?? 'hard') === 'hard';
+          if (this.buryPlan?.key !== key)
+            this.buryPlan = { key, ids: hard ? this.askWorker({ kind: 'bury', state: redactFor(s, dealer), seat: dealer }) : Promise.resolve(null) };
+          const plan = this.buryPlan;
+          this.schedule(1400 * PACE[this.settings.pace].bot, () => {
+            void plan.ids.then((ids) => {
+              if (this.destroyed || this.state !== s || s.phase !== 'burying' || s.dealer !== dealer || !this.isBot(dealer) || this.buryPlan !== plan) return;
+              if (!ids || bury(s, dealer, ids)) bury(s, dealer, botBury(redactFor(s, dealer), dealer));
+              this.changed();
+            });
+          });
+        }
         return;
       case 'playing':
         if (s.trick && s.trick.winner !== null) {
@@ -502,6 +521,14 @@ export class HostController {
   }
 
   private botMove(seat: number, level: Difficulty): Promise<string[] | null> {
+    // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
+    return this.askWorker({ state: redactFor(this.state, seat), seat, budgetMs: PACE[this.settings.pace].think, level }).then(
+      (ids) => ids ?? botPlay(redactFor(this.state, seat), seat),
+    );
+  }
+
+  /** Sends a request to the bot worker; null if there's no worker or it failed. */
+  private askWorker(msg: Record<string, unknown>): Promise<string[] | null> {
     if (this.worker === undefined) {
       try {
         this.worker = new Worker(new URL('../game/botWorker.ts', import.meta.url), { type: 'module' });
@@ -518,12 +545,11 @@ export class HostController {
         this.worker = null;
       }
     }
-    if (!this.worker) return Promise.resolve(botPlay(redactFor(this.state, seat), seat));
+    if (!this.worker) return Promise.resolve(null);
     const id = ++this.workerSeq;
     return new Promise((resolve) => {
       this.workerWaiting.set(id, resolve);
-      // bots only ever see a redacted copy: other hands and the face-down kitty are blanked out
-      this.worker!.postMessage({ id, state: redactFor(this.state, seat), seat, budgetMs: PACE[this.settings.pace].think, level });
+      this.worker!.postMessage({ ...msg, id });
     });
   }
 

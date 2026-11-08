@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
 import { easyMove, liveMove } from '../../src/game/live';
 import { READ_PARAMS } from '../../src/game/inference';
-import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove } from '../../src/game/search';
+import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove, DEAL_BIAS, searchStats, withDealBias } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 // a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
@@ -116,6 +116,17 @@ function modelLive(s: GameState, seat: number, guard: boolean, bar = HOLD_THRESH
 const [a, b] = [process.argv[2], process.argv[3]];
 const deals = Number(process.argv[4] ?? 200);
 const rawOut = process.argv[5]; // optional: write per-deal results here for pooling parallel runs
+// live-n32, live-read-n64, live-bias-n16...: the live pipeline for this deck count with a fixed number of sampled deals (and reading)
+for (const name of [a, b]) {
+  // live-es-n96: stops early once settled, after at least 32 deals (16 with 3 decks), as the live bots do
+  // live-new-n16: with the retrained model (NEW_WEIGHTS) proposing
+  const m = name.match(/^live(-read|-bias|-es|-new)?-n(\d+)$/);
+  if (!m) continue;
+  const search = (s: GameState, seat: number, prior: string[]) =>
+    searchPlay(s, seat, Number(m[2]), false, prior, LEVEL_WEIGHT, m[1] === '-read' ? READ_PARAMS : undefined, m[1] === '-es' ? (decksOf(s) === 3 ? 16 : 32) : undefined);
+  const propose = m[1] === '-new' ? newPlay : learnedPlay;
+  configs[name] = (s, seat) => liveMove(s, seat, (prior) => (m[1] === '-bias' ? withDealBias(DEAL_BIAS[decksOf(s) === 3 ? 3 : 2], () => search(s, seat, prior)) : search(s, seat, prior)), undefined, propose);
+}
 if (!configs[a] || !configs[b]) throw new Error(`configs: ${Object.keys(configs).join(', ')}`);
 // DECKS=3 plays 3-deck deals
 const DECKS = Number(process.env.DECKS ?? 2);
@@ -150,6 +161,7 @@ for (let i = 0; i < deals; i++) {
   if ((i + 1) % 50 === 0) console.error(`  ${i + 1}/${deals} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
 }
 if (rawOut) writeFileSync(rawOut, JSON.stringify(advs));
+if (rawOut) writeFileSync(rawOut.replace(/\.json$/, '.stats.json'), JSON.stringify(searchStats));
 if (rawOut) writeFileSync(rawOut.replace(/\.json$/, '.levels.json'), JSON.stringify(levelAdvs));
 const mean = advs.reduce((t, x) => t + x, 0) / deals;
 const sd = Math.sqrt(advs.reduce((t, x) => t + (x - mean) ** 2, 0) / (deals - 1));

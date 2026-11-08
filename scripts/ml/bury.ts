@@ -4,17 +4,19 @@
 // Scored from the dealer's team's view: points kept from the attackers, plus LEVEL_WEIGHT per level (as the search).
 //   npx tsx scripts/ml/bury.ts search <candidates> <deals> <seed> <out.json>
 //   npx tsx scripts/ml/bury.ts confirm <deals> <out.json> '<params-json>'...
+//   npx tsx scripts/ml/bury.ts versus <deals> <out.json>     (searchBury vs the formula; BURY_SAMPLES sets its deals)
 // DECKS=3 plays 3-deck deals.
 import { writeFileSync } from 'node:fs';
 import { botBury, botDeclare, buryParamsFor, BuryParams } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
-import { attackerValue, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT } from '../../src/game/search';
+import { attackerValue, feedLikelyMove, feedTrickMove, hopelessTrickMove, keepHighCards, LEVEL_WEIGHT, searchBury } from '../../src/game/search';
 
 const nm = () => '';
 const DECKS = Number(process.env.DECKS ?? 2);
 const BURY_PARAMS = buryParamsFor(DECKS);
+const SEARCH_N = Number(process.env.BURY_SAMPLES ?? 24);
 
 function move(s: GameState, seat: number): string[] {
   if (decksOf(s) === 3) return hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? learnedPlay(s, seat);
@@ -22,9 +24,10 @@ function move(s: GameState, seat: number): string[] {
 }
 
 /** [points, value] from the dealer's team's view. */
-function runRound(base: GameState, p: BuryParams): [number, number] {
+function runRound(base: GameState, p: BuryParams | 'search'): [number, number] {
   const s: GameState = structuredClone(base);
-  bury(s, s.dealer!, botBury(redactFor(s, s.dealer!), s.dealer!, p));
+  const view = redactFor(s, s.dealer!);
+  bury(s, s.dealer!, p === 'search' ? searchBury(view, s.dealer!, SEARCH_N) : botBury(view, s.dealer!, p));
   while (s.phase === 'playing') {
     const t = s.turn;
     play(s, t, move(redactFor(s, t), t), nm);
@@ -34,7 +37,7 @@ function runRound(base: GameState, p: BuryParams): [number, number] {
   return [-pts, -attackerValue(pts, LEVEL_WEIGHT, rulesOf(s))];
 }
 
-function duplicate(a: BuryParams, b: BuryParams, deals: number) {
+function duplicate(a: BuryParams | 'search', b: BuryParams, deals: number) {
   const pts: number[] = [];
   const val: number[] = [];
   for (let i = 0; i < deals; i++) {
@@ -93,4 +96,7 @@ if (mode === 'search') {
     return { params: p, ...duplicate(p, BURY_PARAMS, deals) };
   });
   writeFileSync(out, JSON.stringify(results));
+} else if (mode === 'versus') {
+  const [deals, out] = [Number(process.argv[3]), process.argv[4]];
+  writeFileSync(out, JSON.stringify(duplicate('search', BURY_PARAMS, deals)));
 }

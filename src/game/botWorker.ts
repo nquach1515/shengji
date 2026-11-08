@@ -8,12 +8,14 @@
 // score threshold counts for more than a point either side of it.
 import { decksOf, GameState } from './engine';
 import { Difficulty, easyMove, liveMove } from './live';
-import { LEVEL_WEIGHT, MoveReview, reviewMove, searchPlayTimed } from './search';
+import { LEVEL_WEIGHT, MoveReview, reviewMove, searchBury, searchPlayTimed } from './search';
 
 type Request =
   | { id: number; kind?: 'move'; state: GameState; seat: number; budgetMs: number; level?: Difficulty }
   // post-round review: was `played` (made in `state`) clearly worse than another move?
-  | { id: number; kind: 'review'; state: GameState; seat: number; played: string[] };
+  | { id: number; kind: 'review'; state: GameState; seat: number; played: string[] }
+  // a bot dealer's burial
+  | { id: number; kind: 'bury'; state: GameState; seat: number };
 
 self.onmessage = (e: MessageEvent<Request>) => {
   if (e.data.kind === 'review') {
@@ -25,6 +27,17 @@ self.onmessage = (e: MessageEvent<Request>) => {
       review = null;
     }
     (self as unknown as Worker).postMessage({ id, review });
+    return;
+  }
+  if (e.data.kind === 'bury') {
+    const { id, state, seat } = e.data;
+    let ids: string[] | null = null;
+    try {
+      ids = searchBury(state, seat);
+    } catch {
+      ids = null;
+    }
+    (self as unknown as Worker).postMessage({ id, ids });
     return;
   }
   const { id, state, seat, budgetMs, level = 'hard' } = e.data;
