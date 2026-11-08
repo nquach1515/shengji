@@ -7,6 +7,22 @@ import { cardDeal, cardPlay } from './cardSounds';
 
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
+// Battery: a running AudioContext keeps the audio hardware awake even in silence, so after a quiet spell we suspend
+// it, and resume at the next sound. `idleSuspended` marks a suspend that was ours (not the browser's autoplay block).
+const IDLE_MS = 8000;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+let idleSuspended = false;
+let resuming: Promise<void> | null = null;
+function scheduleIdle() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    if (ctx && ctx.state === 'running') {
+      idleSuspended = true;
+      void ctx.suspend().catch(() => {});
+    }
+  }, IDLE_MS);
+}
 let muted = loadMuted();
 const listeners = new Set<() => void>();
 
@@ -45,9 +61,14 @@ function audio(): AudioContext | null {
     } catch {
       return null;
     }
+    scheduleIdle();
   }
   // 'suspended' after autoplay blocking, 'interrupted' (Safari) after the page was in the background
-  if (ctx.state !== 'running' && ctx.state !== 'closed') void ctx.resume().catch(() => {});
+  if (ctx.state !== 'running' && ctx.state !== 'closed') {
+    const a = ctx;
+    resuming ??= a.resume().catch(() => {}).finally(() => (resuming = null));
+    scheduleIdle();
+  }
   return ctx;
 }
 
@@ -63,6 +84,7 @@ if (typeof window !== 'undefined') {
       void ctx?.close().catch(() => {});
       ctx = null;
       noise = null;
+      idleSuspended = false;
     } else audio();
   });
 }
@@ -79,11 +101,24 @@ function noiseBuffer(a: AudioContext): AudioBuffer {
 function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume = 1) {
   if (muted || document.visibilityState === 'hidden') return;
   const a = audio();
-  if (!a || a.state !== 'running') return;
-  const out = a.createGain();
-  out.gain.value = volume;
-  out.connect(a.destination);
-  build(a, out, a.currentTime + 0.005);
+  if (!a) return;
+  const go = () => {
+    const out = a.createGain();
+    out.gain.value = volume;
+    out.connect(a.destination);
+    build(a, out, a.currentTime + 0.005);
+    scheduleIdle();
+  };
+  if (a.state === 'running') return go();
+  // suspended by us for battery: play once it's back, unless that took so long the sound would be late
+  if (!idleSuspended || !resuming) return;
+  const asked = performance.now();
+  void resuming.then(() => {
+    if (a === ctx && a.state === 'running' && performance.now() - asked < 250) {
+      idleSuspended = false;
+      go();
+    }
+  });
 }
 
 function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: number, gain: number, type: OscillatorType = 'sine', attack = 0.01, toFreq?: number) {

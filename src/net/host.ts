@@ -135,6 +135,7 @@ export class HostController {
       this.seats = [{ clientId: hostClientId, name: hostName, isBot: false, online: true }, null, null, null];
     }
     if (online) this.openRelay(0);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.onVisible);
     this.pump();
   }
 
@@ -271,9 +272,18 @@ export class HostController {
     }
   }
 
+  /** Back from the background on our own turn: work out the hint we skipped while hidden. */
+  private onVisible = () => {
+    const s = this.state;
+    if (this.destroyed || document.hidden || s.phase !== 'playing' || !s.trick || s.trick.winner !== null || this.isBot(s.turn)) return;
+    this.prefetchHint(s.turn);
+  };
+
   destroy() {
     this.destroyed = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisible);
     this.worker?.terminate();
+    this.reviewWorker?.terminate();
     this.cancelTimer?.();
     this.socket?.close();
     this.listeners.clear();
@@ -508,15 +518,17 @@ export class HostController {
   }
 
   /** Start computing the bot move for a human's turn right away, so the Hint button answers instantly. */
-  private prefetchHint(seat: number) {
+  private prefetchHint(seat: number, force = false) {
     const key = this.decisionKey();
     if (this.hintCache?.key === key) return;
+    // battery: our own turn while this tab is in the background — wait until we're back (see onVisible)
+    if (!force && typeof document !== 'undefined' && document.hidden && this.seats[seat]?.clientId === this.hostClientId) return;
     // hints are always full strength, whatever the bots' difficulty
     this.hintCache = { key, move: this.botMove(seat, 'hard') };
   }
 
   private hintFor(seat: number): Promise<string[] | null> {
-    this.prefetchHint(seat);
+    this.prefetchHint(seat, true);
     return this.hintCache!.move;
   }
 
