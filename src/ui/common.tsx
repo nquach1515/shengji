@@ -1,4 +1,5 @@
 import { SeatView } from '../net/protocol';
+import { IN_APP } from '../net/site';
 
 export type Pos = 'bottom' | 'right' | 'top' | 'left';
 const POSITIONS: Pos[] = ['bottom', 'right', 'top', 'left'];
@@ -50,6 +51,40 @@ export function Avatar({
       )}
     </div>
   );
+}
+
+/** Phones, tablets and the iOS app share invite links through the system share sheet; computers copy them. */
+export const SHARE_INVITES =
+  IN_APP || (typeof navigator !== 'undefined' && !!navigator.share && matchMedia('(pointer: coarse)').matches);
+
+/**
+ * Opens the share sheet for an invite link (Messages, WhatsApp, AirDrop, Copy…), or copies it where there's no
+ * share sheet. In the app it uses the native share plugin (when the installed app has it), since web share isn't
+ * dependable inside an app's web view. Resolves 'copied' only when the link went to the clipboard.
+ */
+export async function shareInvite(code: string, url: string): Promise<'shared' | 'copied' | 'none'> {
+  const data = { title: 'Join my Shengji table', text: `Join my Shengji table (code ${code})`, url };
+  if (IN_APP) {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isPluginAvailable('Share')) {
+        const { Share } = await import('@capacitor/share');
+        await Share.share({ ...data, dialogTitle: 'Invite to the table' });
+        return 'shared';
+      }
+    } catch {
+      return 'none'; // closed without sharing
+    }
+  }
+  if (SHARE_INVITES && navigator.share) {
+    try {
+      await navigator.share(data);
+      return 'shared';
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return 'none';
+    }
+  }
+  return (await copyText(url)) ? 'copied' : 'none';
 }
 
 export function copyText(text: string): Promise<boolean> {

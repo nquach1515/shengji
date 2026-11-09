@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/core": "^7.6.10",
     "@capacitor/ios": "^7.6.10",
+    "@capacitor/share": "^7.0.4",
     "@capgo/capacitor-updater": "^7.53.0",
     "framer-motion": "^11.11.17",
     "react": "^18.3.1",

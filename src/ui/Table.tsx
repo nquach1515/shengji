@@ -6,7 +6,7 @@ import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
 import { decompose, effSuit, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
 import { Action, PlayerView, SeatView } from '../net/protocol';
 import { CardBack, CardFace } from './Card';
-import { Avatar, copyText, Pos, posOf, sideOf, towards } from './common';
+import { Avatar, Pos, posOf, SHARE_INVITES, shareInvite, sideOf, towards } from './common';
 import { Hand } from './Hand';
 import { DisplayModal, RulesModal } from './Home';
 import { NetBadge } from './Lobby';
@@ -342,12 +342,12 @@ function Hud({
                     <button
                       className="btn ghost small"
                       onClick={async () => {
-                        await copyText(inviteLink(view.roomCode));
+                        if ((await shareInvite(view.roomCode, inviteLink(view.roomCode))) !== 'copied') return;
                         setCopied(true);
                         setTimeout(() => setCopied(false), 1500);
                       }}
                     >
-                      {copied ? '✓ Copied' : 'Copy invite link'}
+                      {copied ? '✓ Copied' : SHARE_INVITES ? 'Share invite link' : 'Copy invite link'}
                     </button>
                   </>
                 )}

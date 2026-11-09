@@ -2,7 +2,7 @@ import { AnimatePresence } from 'framer-motion';
 import { motion } from './motion';
 import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
-import { Avatar, copyText, posOf, sideOf } from './common';
+import { Avatar, posOf, SHARE_INVITES, shareInvite, sideOf } from './common';
 import { DECK_OPTIONS, DifficultyPicker, LengthPicker, lengthName, PACES, Segmented } from './Home';
 import { inviteLink } from '../net/site';
 
@@ -29,7 +29,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
   const link = inviteLink(view.roomCode);
 
   const copy = async () => {
-    if (await copyText(link)) {
+    if ((await shareInvite(view.roomCode, link)) === 'copied') {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     }
@@ -55,7 +55,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
         {view.isHost && (
           <div className="row" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
             <button className="btn small" onClick={copy}>
-              {copied ? '✓ Link copied' : 'Copy invite link'}
+              {copied ? '✓ Link copied' : SHARE_INVITES ? 'Share invite link' : 'Copy invite link'}
             </button>
             <NetBadge state={netState} detail={netDetail} />
           </div>
