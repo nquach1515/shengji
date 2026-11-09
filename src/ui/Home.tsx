@@ -544,7 +544,8 @@ function InviteJoin({ code, onJoin, onHome }: { code: string; onJoin: (name: str
               className="input"
               value={name}
               maxLength={16}
-              autoFocus
+              // computers only: on a phone (and in the app) the keyboard would pop up over the invite before you've read it
+              autoFocus={!matchMedia('(pointer: coarse)').matches}
               placeholder="Your name"
               onChange={(e) => setName(e.target.value)}
               style={{ textAlign: 'center' }}

@@ -1,7 +1,7 @@
 // The game site on Cloudflare (shengji-tractor.com): serves the built app from dist/, and hands /room/* (the
 // multiplayer WebSocket) to the relay Worker through a service binding. The page and its game connection then share
 // one hostname, so a network that lets the page load lets the game connect too.
-// iOS Universal Links: lets the Shengji app (team SW836UR33S) open invite links (/join/CODE) when it's installed;
+// iOS Universal Links: lets the Shengji app (team SW836UR33S) open invite links (/join/CODE) and the main page when it's installed;
 // without the app they open the site as usual. iOS reads this when the app is installed or updated.
 const APPLE_APP_SITE_ASSOCIATION = JSON.stringify({
   applinks: {
@@ -9,8 +9,12 @@ const APPLE_APP_SITE_ASSOCIATION = JSON.stringify({
       {
         appIDs: ['SW836UR33S.com.shengjitractor.app'],
         components: [
+          // always the website: policy pages and the app's own update files
+          { '/': '/privacy*', exclude: true },
+          { '/': '/support*', exclude: true },
+          { '/': '/app/*', exclude: true },
           { '/': '/join/????', comment: 'invite links' },
-          { '/': '/', '?': { room: '????' }, comment: 'older invite links' },
+          { '/': '/', comment: 'the main page (and older /?room=CODE invite links)' },
         ],
       },
     ],
