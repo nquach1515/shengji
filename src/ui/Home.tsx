@@ -447,24 +447,25 @@ export function WhatsNewModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal onClose={onClose} className="rules">
       <h2>What's new in v{__APP_VERSION__}</h2>
-      <h3>Display options</h3>
+      <h3>Rule changes</h3>
       <ul>
-        <li>Four-colour suits (♦ blue, ♣ green) so no two suits look alike, and a large-index card style — easier to read on a phone.</li>
-        <li>Pick the background, table colour (including rainbow) and card backs. Find it under Display on the home screen or in the ⋯ menu.</li>
+        <li>In the first round, the first player to declare deals; a stronger declaration after that only changes the trump suit.</li>
+        <li>You can strengthen your own declaration with a stronger one in another suit.</li>
       </ul>
-      <h3>Bot difficulty</h3>
+      <h3>Play with friends</h3>
       <ul>
-        <li>Choose Easy, Normal or Hard bots when you set up a game. Hard is the full-strength bots you had before. Hints are always full strength.</li>
+        <li>The game now lives at shengji-tractor.com, and invite links look like shengji-tractor.com/join/ABCD.</li>
+        <li>On a phone, Share invite link opens your share sheet — send it straight to Messages, WhatsApp or AirDrop.</li>
       </ul>
-      <h3>Round review</h3>
+      <h3>Smoother on phones</h3>
       <ul>
-        <li>At the end of each round, see your costliest plays and what would have scored more, checked by the same simulation the bots use.</li>
+        <li>Nothing hides under the notch or the home bar, and a smaller logo puts Deal me in on the first screen.</li>
+        <li>The page loads faster and works offline once loaded, with new card sounds and a smoother hand and trick sweep.</li>
       </ul>
       <h3>Also new</h3>
       <ul>
-        <li>Start a game at any level from 2 to A with Custom length.</li>
-        <li>Smarter bots: they feed points onto a partner's trick nobody can beat, take the opponents' points when they're last to play, and break up a triple to take a trick worth points.</li>
-        <li>No more flicker when the page loads.</li>
+        <li>Hard bots plan their bury with the same look-ahead they use in play.</li>
+        <li>The How to play guide now covers how defenders climb, how the game is won, and what happens when nobody declares.</li>
       </ul>
       <button className="btn primary" onClick={onClose}>
         Let's play
@@ -479,14 +480,17 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
       <h2>How to play</h2>
       <h3>Teams &amp; goal</h3>
       <ul>
-        <li>Four players, partners sit across. Both teams start at a level (2 in a classic game) and climb to Ace.</li>
+        <li>Four players, partners sit across. Both teams start at a level (2 in a classic game) and climb to Ace; a team at Ace wins the game by defending a round at Ace.</li>
         <li>The dealing team defends; the other team attacks by capturing points: 5s are worth 5, 10s and Ks 10.</li>
         <li>Attackers need 80 of the 200 points to take over the deal; every 40 more is a level up for them. With 3 decks: 120 of 300.</li>
+        <li>If the attackers fall short, the defenders keep the deal and go up a level, plus one for every 40 points further short, up to three (with 2 decks: 40–75 is one, 5–35 two, none three).</li>
+        <li>When the defenders hold, the dealer's partner deals next; when the attackers take over, the next player deals.</li>
       </ul>
       <h3>Trump</h3>
       <ul>
         <li>While cards are dealt, show a card of the current level to declare its suit as trump. A pair beats a single; a pair of jokers means no trump. With 3 decks, any triple beats any pair, and no trump takes three of the same joker. In the first round, the first player to declare becomes dealer; a stronger declaration after that only changes the trump suit.</li>
         <li>Trump order: big joker, small joker, level card in trump suit, other level cards, then trump suit A down to 2.</li>
+        <li>If nobody declares, the first suited card in the kitty sets trump (no trump if there isn't one); in the first round the dealer is then picked at random.</li>
         <li>The dealer picks up the kitty (8 cards, or 10 with 3 decks) and buries the same number.</li>
       </ul>
       <h3>Playing tricks</h3>
