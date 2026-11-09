@@ -1231,6 +1231,7 @@ function MuteButton() {
 /** Plays sound effects as the game state changes. Nothing plays for the state we mount into. */
 function useSounds(view: PlayerView, myTurn: boolean) {
   const prev = useRef({
+    declSeat: view.declaration ? `${view.round}-${view.declaration.seat}` : '',
     trickKey: `${view.tricksPlayed}`,
     plays: view.trick?.plays.length ?? 0,
     winner: view.trick?.winner ?? null,
@@ -1258,7 +1259,12 @@ function useSounds(view: PlayerView, myTurn: boolean) {
       if (attackers && trick.points > 0 && view.you !== null && winner % 2 === view.you % 2) setTimeout(() => haptic.points(), 1050);
     }
     const decl = view.declaration ? `${view.round}-${view.declaration.seat}-${view.declaration.strength}` : '';
-    if (decl && decl !== p.decl) sfx.declare();
+    if (decl && decl !== p.decl) {
+      sfx.declare();
+      const mine = view.you !== null && view.declaration!.seat === view.you;
+      if (mine) haptic.play(); // you declared trump
+      else if (view.you !== null && p.declSeat === `${view.round}-${view.you}`) haptic.light(); // your call was overturned
+    }
     if (myTurn && !p.myTurn)
       setTimeout(() => {
         sfx.turn();
@@ -1267,12 +1273,18 @@ function useSounds(view: PlayerView, myTurn: boolean) {
     if (view.phase === 'dealing' && view.hand.length > p.hand) sfx.deal();
     if ((view.phase === 'roundEnd' || view.phase === 'gameOver') && p.phase !== view.phase && view.result) {
       const won = view.result.winnerTeam === (view.you ?? 0) % 2;
-      setTimeout(() => (won ? sfx.win() : sfx.lose()), 300);
+      setTimeout(() => {
+        if (won) {
+          sfx.win();
+          haptic.points();
+        } else sfx.lose();
+      }, 300);
     }
     if (view.error && view.error.id !== p.error) sfx.error();
     const lastEvent = view.events[view.events.length - 1];
     if (lastEvent?.kind === 'throwFail' && lastEvent.id !== p.event) sfx.error();
     prev.current = {
+      declSeat: view.declaration ? `${view.round}-${view.declaration.seat}` : '',
       trickKey,
       plays,
       winner,

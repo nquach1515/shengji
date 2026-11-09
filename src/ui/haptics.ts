@@ -1,6 +1,7 @@
 /*
  * Light haptics in the iOS app (@capacitor/haptics); nothing on the website. Kept subtle: a tick when a card is
- * picked, a tap when you play, a short double tap when your turn starts, a success buzz when your team takes points.
+ * picked, a tap when you play or declare trump, a light tap if your declaration is overturned, a short double tap when
+ * your turn starts, a success buzz when your team takes points or wins the round.
  * Older app builds without the plugin simply get none. iPhone's own vibration setting still applies.
  */
 import { IN_APP } from '../net/site';
@@ -31,7 +32,11 @@ export const haptic = {
     lastTick = now;
     run((h) => h.Haptics.impact({ style: h.ImpactStyle.Light }));
   },
-  /** Your cards played (or the kitty buried). */
+  /** A light tap: your trump declaration was overturned. */
+  light() {
+    run((h) => h.Haptics.impact({ style: h.ImpactStyle.Light }));
+  },
+  /** Your cards played, the kitty buried, or trump declared. */
   play() {
     run((h) => h.Haptics.impact({ style: h.ImpactStyle.Medium }));
   },
@@ -42,7 +47,7 @@ export const haptic = {
       setTimeout(() => void h.Haptics.impact({ style: h.ImpactStyle.Light }).catch(() => {}), 110);
     });
   },
-  /** Your team took points. */
+  /** Your team took points, or won the round. */
   points() {
     run((h) => h.Haptics.notification({ type: h.NotificationType.Success }));
   },
