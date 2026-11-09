@@ -13,6 +13,7 @@ import { NetBadge } from './Lobby';
 import { Modal } from './Modal';
 import { useStage } from './stage';
 import { setMuted, sfx, useMuted } from './sound';
+import { haptic } from './haptics';
 import { inviteLink } from '../net/site';
 
 interface Props {
@@ -100,9 +101,11 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
     if (myTurn && !playError) {
       send({ type: 'play', cardIds: [...selected] });
       setSelected(new Set());
+      haptic.play();
     } else if (iBury && selected.size === view.rules.kitty) {
       send({ type: 'bury', cardIds: [...selected] });
       setSelected(new Set());
+      haptic.play();
     }
   };
   const doPlayRef = useRef(doPlay);
@@ -174,7 +177,16 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
             hintPending={hintPending}
           />
         </div>
-        <Hand cards={view.hand} ctx={ctx} selected={selected} onChange={setSelected} dealing={view.phase === 'dealing'} />
+        <Hand
+          cards={view.hand}
+          ctx={ctx}
+          selected={selected}
+          onChange={(s) => {
+            haptic.select();
+            setSelected(s);
+          }}
+          dealing={view.phase === 'dealing'}
+        />
       </div>
 
       <AnimatePresence>
@@ -1242,10 +1254,16 @@ function useSounds(view: PlayerView, myTurn: boolean) {
       setTimeout(() => sfx.sweep(), 850);
       const attackers = view.dealer !== null && winner % 2 !== view.dealer % 2;
       if (attackers && trick.points > 0) setTimeout(() => sfx.coin(), 1050);
+      // our team took points
+      if (attackers && trick.points > 0 && view.you !== null && winner % 2 === view.you % 2) setTimeout(() => haptic.points(), 1050);
     }
     const decl = view.declaration ? `${view.round}-${view.declaration.seat}-${view.declaration.strength}` : '';
     if (decl && decl !== p.decl) sfx.declare();
-    if (myTurn && !p.myTurn) setTimeout(() => sfx.turn(), 250);
+    if (myTurn && !p.myTurn)
+      setTimeout(() => {
+        sfx.turn();
+        haptic.turn();
+      }, 250);
     if (view.phase === 'dealing' && view.hand.length > p.hand) sfx.deal();
     if ((view.phase === 'roundEnd' || view.phase === 'gameOver') && p.phase !== view.phase && view.result) {
       const won = view.result.winnerTeam === (view.you ?? 0) % 2;

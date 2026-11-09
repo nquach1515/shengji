@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.10",
+    "@capacitor/haptics": "^7.0.5",
     "@capacitor/ios": "^7.6.10",
     "@capacitor/share": "^7.0.4",
     "@capgo/capacitor-updater": "^7.53.0",
