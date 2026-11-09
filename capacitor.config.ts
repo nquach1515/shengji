@@ -7,7 +7,7 @@ const nativeLevel = JSON.parse(readFileSync('package.json', 'utf8')).iosNativeLe
 // iOS app wrapper: the web build (dist/) is bundled into the app. See ios/ for the Xcode project.
 const config: CapacitorConfig = {
   appId: 'com.shengjitractor.app',
-  appName: 'Tractor',
+  appName: 'Shengji',
   webDir: 'dist',
   ios: {
     contentInset: 'never',
