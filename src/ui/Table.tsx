@@ -1281,7 +1281,10 @@ function useSounds(view: PlayerView, myTurn: boolean) {
     }
     if (view.error && view.error.id !== p.error) sfx.error();
     const lastEvent = view.events[view.events.length - 1];
-    if (lastEvent?.kind === 'throwFail' && lastEvent.id !== p.event) sfx.error();
+    if (lastEvent?.kind === 'throwFail' && lastEvent.id !== p.event) {
+      sfx.error();
+      if (view.you !== null && lastEvent.seat === view.you) haptic.warning(); // your throw was blocked
+    }
     prev.current = {
       declSeat: view.declaration ? `${view.round}-${view.declaration.seat}` : '',
       trickKey,

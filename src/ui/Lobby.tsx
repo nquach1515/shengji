@@ -1,10 +1,11 @@
 import { AnimatePresence } from 'framer-motion';
 import { motion } from './motion';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, posOf, SHARE_INVITES, shareInvite, sideOf } from './common';
 import { DECK_OPTIONS, DifficultyPicker, LengthPicker, lengthName, PACES, Segmented } from './Home';
 import { inviteLink } from '../net/site';
+import { haptic } from './haptics';
 
 const SPOT: Record<string, { left: string; top: string }> = {
   bottom: { left: '50%', top: '100%' },
@@ -23,6 +24,14 @@ interface Props {
 
 export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
   const [copied, setCopied] = useState(false);
+  // a light tap when another person (not a bot) takes a seat, so a host waiting with the phone in hand feels it
+  const people = view.seats.map((st, i) => (st && !st.isBot && i !== view.you ? st.name : null));
+  const seen = useRef(people);
+  useEffect(() => {
+    if (people.some((n, i) => n !== null && seen.current[i] === null)) haptic.light();
+    seen.current = people;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people.join('|')]);
   const full = view.seats.every(Boolean);
   // the seat across from you is your partner's
   const partnerSeat = view.you === null ? null : (view.you + 2) % 4;
