@@ -642,7 +642,10 @@ input { font: inherit; }
 .emote-bar button{background:none;border:none;font-size:20px;cursor:pointer;padding:3px 5px;border-radius:10px;transition:transform .15s}
 .emote-bar button:hover{transform:scale(1.25)}
 .modal-back{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:grid;place-items:center;background:var(--overlay);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
-.modal{width:min(540px,100%);padding:28px;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;max-height:100%;overflow-y:auto}
+.modal{width:min(540px,100%);padding:28px 28px 0;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;max-height:100%;overflow-y:auto}
+/* bottom space as a spacer, not padding: Safari drops a scrolling box's bottom padding, which left the last button
+   (e.g. "Next round") on the box's edge when a popup is taller than the screen. 12px + the 16px gap = 28px. */
+.modal::after{content:"";flex:none;height:12px}
 .modal h2{margin:0;font-family:var(--serif);font-size:32px;font-weight:800;color:#fff4dc}
 .modal .sub{color:var(--ink-dim);margin-top:-8px}
 .modal.rules{text-align:left;align-items:stretch;width:min(620px,100%)}
@@ -712,7 +715,7 @@ input { font: inherit; }
 .room-code .ch{width:50px;height:60px;font-size:30px}
 .name-row{flex-direction:column;gap:6px}
 .opt-note{padding-left:0}
-.modal{padding:20px}}
+.modal{padding:20px 20px 0}.modal::after{height:4px}}
 
 
 
