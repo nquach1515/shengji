@@ -148,7 +148,7 @@ input { font: inherit; }
   border: 1px solid var(--line);
   background: rgba(0, 0, 0, 0.35);
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px; /* under 16px, iPhone zooms the page in when the field is focused */
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
   user-select: text;
@@ -343,6 +343,13 @@ input { font: inherit; }
   .tagline { font-size: 14px; line-height: 1.35; }
   .mode-cards { margin-top: 2px; }
 }
+/* phones: a smaller fan and title, so starting a game ("Deal me in") is on screen without scrolling on most phones */
+@media (max-width: 720px) {
+  .home-inner { gap: 10px; }
+  .logo-fan { scale: 0.58; transform-origin: 50% 100%; margin-top: -66px; }
+  .wordmark .zh { font-size: clamp(56px, 8.5cqh, 90px); }
+  .wordmark .en { margin-top: 2px; }
+}
 .name-row { display: flex; align-items: center; gap: 12px; }
 .name-row .input { width: 190px; }
 .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; margin-top: 6px; }
@@ -468,7 +475,12 @@ input { font: inherit; }
 
 /* ---------- game layout ---------- */
 /* bottom area = action bar + hand (card height + selection lift + fan arc) */
-.game { position: fixed; inset: 0; z-index: 1; --hud-h: 96px; --bottom-h: calc(var(--cw) * 2.06 + 72px); }
+/* --safe-t/--safe-b: notch and home-indicator space (0 in a browser tab; ~60px/34px in the iOS app or a home-screen web app) */
+.game {
+  position: fixed; inset: 0; z-index: 1;
+  --safe-t: max(12px, env(safe-area-inset-top)); --safe-b: calc(max(2px, env(safe-area-inset-bottom)) - 2px);
+  --hud-h: calc(var(--safe-t) + 84px); --bottom-h: calc(var(--cw) * 2.06 + 72px + var(--safe-b));
+}
 .table-wrap {
   position: absolute;
   left: 50%;
@@ -629,7 +641,7 @@ input { font: inherit; }
 .emote-bar{display:flex;gap:2px;padding:4px 6px;border-radius:999px;position:absolute;right:0;top:44px;z-index:70}
 .emote-bar button{background:none;border:none;font-size:20px;cursor:pointer;padding:3px 5px;border-radius:10px;transition:transform .15s}
 .emote-bar button:hover{transform:scale(1.25)}
-.modal-back{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:grid;place-items:center;background:var(--overlay);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding:16px}
+.modal-back{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:grid;place-items:center;background:var(--overlay);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
 .modal{width:min(540px,100%);padding:28px;display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center;max-height:100%;overflow-y:auto}
 .modal h2{margin:0;font-family:var(--serif);font-size:32px;font-weight:800;color:#fff4dc}
 .modal .sub{color:var(--ink-dim);margin-top:-8px}
@@ -658,7 +670,7 @@ input { font: inherit; }
 @container stage (max-width: 1100px){.team-panel .members .counts{display:none}}
 @container stage (max-width: 900px){.mode-cards{grid-template-columns:1fr}}
 @container stage (max-width: 720px){.screen{--cw: 52px}
-.game{--hud-h: 124px;--bottom-h: calc(var(--ch) * 1.52 + 92px)}
+.game{--hud-h: calc(var(--safe-t) + 112px);--bottom-h: calc(var(--ch) * 1.52 + 92px + var(--safe-b))}
 .hud{grid-template-columns:1fr 1fr;left:8px;right:8px;gap:6px}
 .hud .center{grid-column:1 / -1;grid-row:2;justify-self:start}
 .trump-pill .t1{font-size:14px}
@@ -715,7 +727,7 @@ input { font: inherit; }
 .splash .card .big { color: inherit; filter: none; }
 
 /* trick history */
-.modal.history { width: min(820px, 100%); max-height: calc(100cqh - 48px); }
+.modal.history { width: min(820px, 100%); max-height: min(calc(100cqh - 48px), 100%); }
 .history-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
 .history-row { border: 1px solid var(--line); border-radius: 14px; background: rgba(0, 0, 0, 0.28); padding: 10px 14px 12px; text-align: left; }
 .history-head { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-dim); margin-bottom: 8px; }
@@ -746,7 +758,7 @@ input { font: inherit; }
 .name-edit:hover { background: rgba(232, 182, 76, 0.12); }
 .name-edit .you { color: var(--ink-dim); font-weight: 500; }
 .name-edit .pen { color: var(--gold-hi); font-size: 13px; }
-.name-form .input { padding: 6px 10px; font-size: 14px; text-align: center; width: 130px; }
+.name-form .input { padding: 6px 10px; font-size: 16px; text-align: center; width: 130px; }
 
 /* app version on the home screen */
 .version { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: -4px; }
@@ -772,7 +784,7 @@ input { font: inherit; }
 /* phones: the trump box shares its row with the icon buttons, so it gets the remaining width and truncates;
    the table starts below the two-row header so the top player's plate never overlaps it */
 @container stage (max-width: 720px) {
-  .game { --hud-h: 140px; }
+  .game { --hud-h: calc(var(--safe-t) + 128px); }
   .hud .center { max-width: calc(100cqw - 16px - 136px); min-width: 0; }
   .trump-pill { max-width: 100%; min-width: 0; }
   .trump-pill > div:last-child { min-width: 0; }

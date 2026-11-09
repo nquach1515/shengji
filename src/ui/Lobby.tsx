@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, copyText, posOf, sideOf } from './common';
 import { DECK_OPTIONS, DifficultyPicker, LengthPicker, lengthName, PACES, Segmented } from './Home';
+import { inviteLink } from '../net/site';
 
 const SPOT: Record<string, { left: string; top: string }> = {
   bottom: { left: '50%', top: '100%' },
@@ -25,7 +26,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
   const full = view.seats.every(Boolean);
   // the seat across from you is your partner's
   const partnerSeat = view.you === null ? null : (view.you + 2) % 4;
-  const link = `${location.origin}${location.pathname}?room=${view.roomCode}`;
+  const link = inviteLink(view.roomCode);
 
   const copy = async () => {
     if (await copyText(link)) {

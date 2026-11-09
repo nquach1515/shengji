@@ -10,14 +10,20 @@
     "typecheck": "tsc -b",
     "sim": "tsx scripts/simulate.ts",
     "eval": "tsx scripts/eval.ts",
-    "leaktest": "tsx scripts/leaktest.ts"
+    "leaktest": "tsx scripts/leaktest.ts",
+    "ios": "npm run ios:sync && cap open ios",
+    "ios:sync": "npm run build && cap sync ios && rm -rf ios/App/App/public/app"
   },
   "dependencies": {
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/ios": "^7.6.10",
+    "@capgo/capacitor-updater": "^7.53.0",
     "framer-motion": "^11.11.17",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.10",
     "@types/node": "^20.19.43",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -25,5 +31,6 @@
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
-  }
+  },
+  "iosNativeLevel": 1
 }

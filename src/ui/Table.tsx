@@ -13,6 +13,7 @@ import { NetBadge } from './Lobby';
 import { Modal } from './Modal';
 import { useStage } from './stage';
 import { setMuted, sfx, useMuted } from './sound';
+import { inviteLink } from '../net/site';
 
 interface Props {
   view: PlayerView;
@@ -341,7 +342,7 @@ function Hud({
                     <button
                       className="btn ghost small"
                       onClick={async () => {
-                        await copyText(`${location.origin}${location.pathname}?room=${view.roomCode}`);
+                        await copyText(inviteLink(view.roomCode));
                         setCopied(true);
                         setTimeout(() => setCopied(false), 1500);
                       }}

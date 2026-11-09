@@ -3,14 +3,16 @@
  * to it over a WebSocket, which works through VPNs and work networks that block browser-to-browser WebRTC.
  * The relay only forwards messages; the game still runs in the host's browser.
  */
-const SITE_DOMAIN = 'shengji-tractor.com';
+import { IN_APP, SITE_DOMAIN } from './site';
+
 /**
  * On shengji-tractor.com the relay answers on the same host (the site's Worker passes /room/* to it), so a network
- * that lets the page load lets the game connect; elsewhere (e.g. GitHub Pages) the relay's own workers.dev address.
+ * that lets the page load lets the game connect (the iOS app uses the site's host too); elsewhere (e.g. GitHub Pages) the relay's own workers.dev address.
  */
 const sameHost = typeof location !== 'undefined' && (location.hostname === SITE_DOMAIN || location.hostname.endsWith(`.${SITE_DOMAIN}`));
 export const RELAY_URL: string =
-  import.meta.env.VITE_RELAY_URL ?? (sameHost ? `wss://${location.host}` : 'wss://shengji-relay.nquach1515.workers.dev');
+  import.meta.env.VITE_RELAY_URL ??
+  (sameHost ? `wss://${location.host}` : IN_APP ? `wss://${SITE_DOMAIN}` : 'wss://shengji-relay.nquach1515.workers.dev');
 
 const PING_MS = 25000;
 

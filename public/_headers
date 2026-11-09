@@ -2,3 +2,8 @@
 # browsers can keep them for a year instead of re-checking on every visit.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# iOS app self-update files: always re-checked, and readable by the app (its pages come from capacitor://localhost).
+/app/*
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: *

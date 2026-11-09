@@ -5,6 +5,9 @@ export const DESIGN_W = 1440;
 export const DESIGN_H = 880;
 /** At or below this real width we use the phone layout at 1:1 instead. */
 export const PHONE_W = 720;
+/** Tall (portrait) screens wider than PHONE_W use the phone layout on a canvas about this size, scaled up. */
+const TALL_MIN_W = 480;
+const TALL_H = 860;
 
 export interface Stage {
   scale: number;
@@ -16,7 +19,10 @@ export interface Stage {
 function measure(): Stage {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const scale = vw <= PHONE_W ? 1 : Math.min(vw / DESIGN_W, vh / DESIGN_H);
+  // tall screens wider than a phone (iPad held upright): the phone layout, enlarged, on a canvas of at least
+  // TALL_H — the wide layout shrunk to the width left tiny controls and a long thin table
+  const scale =
+    vw <= PHONE_W ? 1 : vh > vw * 1.1 ? Math.min(vw / TALL_MIN_W, vh / TALL_H) : Math.min(vw / DESIGN_W, vh / DESIGN_H);
   return { scale, w: vw / scale, h: vh / scale };
 }
 
