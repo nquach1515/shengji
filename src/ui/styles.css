@@ -347,7 +347,7 @@ input { font: inherit; }
 @media (max-width: 720px) {
   .home-inner { gap: 10px; }
   .logo-fan { scale: 0.58; transform-origin: 50% 100%; margin-top: -66px; }
-  .wordmark .zh { font-size: clamp(56px, 8.5cqh, 90px); }
+  .wordmark .zh { font-size: 72px; } /* fixed, so the iOS launch logo (LaunchIntro.tsx) matches on every phone */
   .wordmark .en { margin-top: 2px; }
 }
 .name-row { display: flex; align-items: center; gap: 12px; }
@@ -1003,3 +1003,7 @@ input { font: inherit; }
 .decl-chip.suit-SJ, .decl-chip.suit-BJ { font-size: 14px; }
 /* a declaration only jokers can override */
 .decl-chip.lock { box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px -2px rgba(232, 182, 76, 0.7); }
+
+/* iOS app launch: the launch-screen logo, drawn again and moved into the home screen's (LaunchIntro.tsx) */
+.launch-intro { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.launch-intro img { position: absolute; left: 50%; top: 50%; transform-origin: 50% 50%; max-width: none; }

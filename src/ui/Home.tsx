@@ -140,7 +140,9 @@ export function Segmented<T extends string | number>({
   );
 }
 
-export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => void }) {
+/** introLogo: the iOS launch intro is running (LaunchIntro.tsx) — the logo starts in its final place, hidden, and the
+ *  intro's moving picture lands exactly on it */
+export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: string) => void; introLogo?: 'hidden' | 'shown' }) {
   const urlCode = useMemo(() => new URL(window.location.href).searchParams.get('room') ?? '', []);
   const saved = useMemo(() => loadSavedHost(), []);
   const [name, setName] = useState('');
@@ -197,14 +199,14 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
   return (
     <div className="home">
       <div className="home-inner">
-        <div className="logo-fan">
+        <div className="logo-fan" style={introLogo === 'hidden' ? { visibility: 'hidden' } : undefined}>
           {FAN.map((card, i) => {
             const mid = (FAN.length - 1) / 2;
             return (
               <motion.div
                 key={card.id}
                 style={{ position: 'absolute', bottom: 0, transformOrigin: '50% 135%' }}
-                initial={{ rotate: 0, y: 60, opacity: 0 }}
+                initial={introLogo ? false : { rotate: 0, y: 60, opacity: 0 }}
                 animate={{ rotate: (i - mid) * 15, y: Math.abs(i - mid) * 8, opacity: 1 }}
                 transition={{ delay: 0.1 + i * 0.08, type: 'spring', stiffness: 150, damping: 15 }}
                 whileHover={{ y: Math.abs(i - mid) * 8 - 18, transition: { duration: 0.2 } }}
@@ -217,11 +219,13 @@ export function Home({ onStart }: { onStart: (mode: StartMode, name: string) => 
 
         <motion.div
           className="wordmark"
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={introLogo ? false : { opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.35, type: 'spring', stiffness: 120, damping: 14 }}
         >
-          <div className="zh">升级</div>
+          <div className="zh" style={introLogo === 'hidden' ? { visibility: 'hidden' } : undefined}>
+            升级
+          </div>
           <div className="en">Sheng Ji · Tractor</div>
         </motion.div>
         <motion.div className="tagline" initial={{ opacity: 0 }} animate={{ opacity: 0.85 }} transition={{ delay: 0.55 }}>

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IN_APP } from './net/site';
 import { App } from './ui/App';
+import './ui/fonts.css';
 import './ui/styles.css';
 
 // In the iOS app the screen is fixed like a native game: no pinch, double-tap or focus zoom. (The website keeps

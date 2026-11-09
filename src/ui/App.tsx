@@ -9,6 +9,8 @@ import { StageContext, useStageSize } from './stage';
 import { Settings } from '../net/protocol';
 import { Lobby } from './Lobby';
 import { Table } from './Table';
+import { LaunchIntro } from './LaunchIntro';
+import { IN_APP } from '../net/site';
 
 export type StartMode =
   | { kind: 'host' }
@@ -31,6 +33,8 @@ export function App() {
   const [conn, setConn] = useState<GameConnection | null>(null);
   const { view, status } = useConnection(conn);
   const stage = useStageSize();
+  // iOS app only: the launch-screen logo glides into the home screen's (LaunchIntro.tsx); null once it's done
+  const [intro, setIntro] = useState<'hidden' | 'shown' | null>(IN_APP ? 'hidden' : null);
 
   const start = (mode: StartMode, name: string) => {
     const clientId = getClientId();
@@ -67,7 +71,7 @@ export function App() {
   let key: string;
   if (!conn) {
     key = 'home';
-    screen = <Home onStart={start} />;
+    screen = <Home onStart={start} introLogo={intro ?? undefined} />;
   } else if (!view) {
     key = 'connecting';
     screen = <Connecting state={status.state} detail={status.detail} onCancel={leave} />;
@@ -86,7 +90,8 @@ export function App() {
       {/* phones (scale 1) take the full height from CSS, which the browser keeps right as toolbars and the keyboard
           come and go; scaled layouts need the measured size */}
       <div className="stage" style={stage.scale === 1 ? { inset: 0 } : { width: stage.w, height: stage.h, transform: `scale(${stage.scale})` }}>
-      <AnimatePresence mode="wait">
+      {/* in the app the first screen appears in place under the launch intro */}
+      <AnimatePresence mode="wait" initial={!IN_APP}>
         <motion.div
           key={key}
           className="screen"
@@ -99,6 +104,7 @@ export function App() {
         </motion.div>
       </AnimatePresence>
       </div>
+      {intro && <LaunchIntro onReveal={() => setIntro('shown')} onDone={() => setIntro(null)} />}
       </DisplayProvider>
     </StageContext.Provider>
   );
