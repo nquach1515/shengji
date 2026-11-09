@@ -166,12 +166,11 @@ if (typeof window !== 'undefined') {
     alog(`page ${document.visibilityState} (${ctx?.state ?? 'no context'})`);
     playedSinceVisible = false;
     if (document.visibilityState === 'hidden') {
-      // Pause, don't close: iOS lets a context that was already started resume without a tap, so sound is back as
-      // soon as we are. (A new context would stay silent until the next tap, or seconds after it on iOS.)
-      if (ctx && ctx.state === 'running') {
-        idleSuspended = true; // our own suspend: a sound asked for while it resumes still plays
-        void ctx.suspend().catch(() => {});
-      }
+      // Leave the context alone: iOS interrupts it in the background and brings an interrupted context back by itself
+      // when we return. One we suspend (or a new one) only starts again from a tap — the audio log on a phone showed
+      // every resume asked for without a tap staying 'suspended' until the next touch.
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
     } else {
       audio();
       // the resume can take a moment; check the clock once it says it's running
