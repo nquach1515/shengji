@@ -26,6 +26,8 @@ if (IN_APP) {
   import('./net/appUpdate')
     .then(async (u) => {
       await u.applyPendingUpdate(); // reloads into a downloaded update, if there is one
+      // opened by an invite link: start on that invite (src/net/appLinks.ts)
+      await import('./net/appLinks').then((l) => l.applyLaunchLink()).catch(() => {});
       render();
       void u.checkForUpdate();
       // sounds through the native player (src/ui/nativeSound.ts)

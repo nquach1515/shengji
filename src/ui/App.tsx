@@ -1,7 +1,7 @@
 import { AnimatePresence } from 'framer-motion';
 import { motion } from './motion';
 import { DisplayProvider } from './display';
-import { useCallback, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { clearSavedHost, HostController, loadSavedHost, randomCode } from '../net/host';
 import { GameConnection, getClientId, LocalConnection, RemoteConnection } from '../net/client';
 import { Home } from './Home';
@@ -35,6 +35,21 @@ export function App() {
   const stage = useStageSize();
   // iOS app only: the launch-screen logo glides into the home screen's (LaunchIntro.tsx); null once it's done
   const [intro, setIntro] = useState<'hidden' | 'shown' | null>(IN_APP ? 'hidden' : null);
+  // iOS app: an invite link tapped while the app is open shows that invite on the home screen (src/net/appLinks.ts);
+  // ignored while already at a table, so a link can't pull you out of a game
+  const [homeKey, setHomeKey] = useState(0);
+  const connRef = useRef(conn);
+  connRef.current = conn;
+  useEffect(() => {
+    if (!IN_APP) return;
+    void import('../net/appLinks').then((l) =>
+      l.onInviteLink((room) => {
+        if (connRef.current) return;
+        l.putRoomInUrl(room);
+        setHomeKey((k) => k + 1);
+      }),
+    );
+  }, []);
 
   const start = (mode: StartMode, name: string) => {
     const clientId = getClientId();
@@ -71,7 +86,7 @@ export function App() {
   let key: string;
   if (!conn) {
     key = 'home';
-    screen = <Home onStart={start} introLogo={intro ?? undefined} />;
+    screen = <Home key={homeKey} onStart={start} introLogo={intro ?? undefined} />;
   } else if (!view) {
     key = 'connecting';
     screen = <Connecting state={status.state} detail={status.detail} onCancel={leave} />;

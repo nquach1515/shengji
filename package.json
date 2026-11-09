@@ -15,6 +15,7 @@
     "ios:sync": "npm run build && cap sync ios && rm -rf ios/App/App/public/app"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.10",
     "@capacitor/ios": "^7.6.10",
     "@capacitor/share": "^7.0.4",
