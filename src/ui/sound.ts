@@ -77,10 +77,36 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
+/** Set when the context says it's running but its clock is stuck: it's replaced at the next tap. */
+let stale = false;
+
+/**
+ * After returning to the page: a context that says 'running' but whose clock doesn't move is silent for good
+ * (seen on iOS after the background). It can only be replaced inside a tap, so mark it for the next one.
+ */
+function checkClock() {
+  const a = ctx;
+  if (!a || a.state !== 'running') return;
+  const t0 = a.currentTime;
+  setTimeout(() => {
+    if (a === ctx && a.state === 'running' && a.currentTime === t0 && document.visibilityState === 'visible') stale = true;
+  }, 300);
+}
+
 // Unlock audio on interaction. Not just the first one: phones suspend audio whenever the page leaves the screen,
-// and only a tap is guaranteed to be allowed to start it again.
+// and a tap is always allowed to start it again.
 if (typeof window !== 'undefined') {
-  const unlock = () => audio();
+  const unlock = () => {
+    if (stale && ctx) {
+      // inside a tap, so the new context is allowed to start
+      stale = false;
+      void ctx.close().catch(() => {});
+      ctx = null;
+      noise = null;
+      idleSuspended = false;
+    }
+    audio();
+  };
   window.addEventListener('pointerdown', unlock);
   // iOS only lets audio start on a touch's end or a click, not on its start
   window.addEventListener('touchend', unlock);
@@ -88,12 +114,17 @@ if (typeof window !== 'undefined') {
   window.addEventListener('keydown', unlock);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      // iOS can leave a backgrounded context "running" but silent; start a fresh one when we're back
-      void ctx?.close().catch(() => {});
-      ctx = null;
-      noise = null;
-      idleSuspended = false;
-    } else audio();
+      // Pause, don't close: iOS lets a context that was already started resume without a tap, so sound is back as
+      // soon as we are. (A new context would stay silent until the next tap, or seconds after it on iOS.)
+      if (ctx && ctx.state === 'running') {
+        idleSuspended = true; // our own suspend: a sound asked for while it resumes still plays
+        void ctx.suspend().catch(() => {});
+      }
+    } else {
+      audio();
+      // the resume can take a moment; check the clock once it says it's running
+      ctx?.resume().then(checkClock, () => {});
+    }
   });
 }
 
