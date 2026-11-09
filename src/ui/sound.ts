@@ -126,19 +126,44 @@ function audio(): AudioContext | null {
 let stale = false;
 
 /**
- * After returning to the page: a context that says 'running' but whose clock doesn't move is silent for good
- * (seen on iOS after the background). It can only be replaced inside a tap, so mark it for the next one.
+ * After returning to the page, iOS holds the audio for a few seconds (or until a tap): the context reports 'running'
+ * with its clock frozen, or stays 'suspended' with resume requests left waiting. Keep asking until the clock really
+ * moves, so sound is back the moment iOS lets go, not at the next sound after that. If it's still stuck, the next tap
+ * replaces the context (only a tap may start a new one).
  */
-function checkClock() {
-  const a = ctx;
-  if (!a || a.state !== 'running') return;
-  const t0 = a.currentTime;
-  setTimeout(() => {
-    if (a === ctx && a.state === 'running' && a.currentTime === t0 && document.visibilityState === 'visible') {
+let reviveTimer: ReturnType<typeof setInterval> | null = null;
+function revive() {
+  if (reviveTimer) clearInterval(reviveTimer);
+  const started = performance.now();
+  let last = ctx?.currentTime ?? -1;
+  const stop = () => {
+    if (reviveTimer) clearInterval(reviveTimer);
+    reviveTimer = null;
+  };
+  reviveTimer = setInterval(() => {
+    const a = ctx;
+    if (!a || document.visibilityState !== 'visible' || performance.now() - started > 20000) return stop();
+    if (a.state === 'running' && a.currentTime !== last) {
+      alog('clock moving');
+      stale = false;
+      return stop();
+    }
+    last = a.currentTime;
+    if (a.state !== 'running') audio(); // asks to resume
+    else if (!stale && performance.now() - started > 300) {
       stale = true;
       alog('clock stuck → new context at next tap');
-    } else if (a === ctx) alog(`clock ok (${a.state})`);
-  }, 300);
+    }
+  }, 250);
+}
+
+if (typeof window !== 'undefined') {
+  // the iOS app calls this as it comes back to the foreground, after reactivating its audio (MainViewController.swift)
+  (window as unknown as { __shengjiAudioNudge?: () => void }).__shengjiAudioNudge = () => {
+    alog('app active (native)');
+    audio();
+    revive();
+  };
 }
 
 // Unlock audio on interaction. Not just the first one: phones suspend audio whenever the page leaves the screen,
@@ -173,8 +198,7 @@ if (typeof window !== 'undefined') {
       idleTimer = null;
     } else {
       audio();
-      // the resume can take a moment; check the clock once it says it's running
-      ctx?.resume().then(checkClock, () => {});
+      revive();
     }
   });
 }
