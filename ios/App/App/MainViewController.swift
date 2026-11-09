@@ -10,6 +10,7 @@ class MainViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(LaunchCoverPlugin())
+        bridge?.registerPluginInstance(NativeSoundPlugin())
     }
 
     override func viewDidLoad() {
@@ -19,18 +20,23 @@ class MainViewController: CAPBridgeViewController {
         launch.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(launch)
         cover = launch
-        // Sound after coming back from the background: iOS can hold the web view's audio for several seconds. Mix
-        // with other apps' audio and respect the silent switch (as Web Audio does), and reactivate it ourselves on return.
+        // Game sounds play natively (NativeSoundPlugin): mix with other apps' audio and follow the silent switch, as
+        // web audio did; the session is on only while the app is in front.
         try? AVAudioSession.sharedInstance().setCategory(.ambient)
         NotificationCenter.default.addObserver(self, selector: #selector(appBecameActive),
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillResign),
+                                               name: UIApplication.willResignActiveNotification, object: nil)
         // never leave it up if the page doesn't call hide() (an error, or an older web bundle)
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.hideCover() }
     }
 
     @objc private func appBecameActive() {
         try? AVAudioSession.sharedInstance().setActive(true)
-        webView?.evaluateJavaScript("window.__shengjiAudioNudge && window.__shengjiAudioNudge()")
+    }
+
+    @objc private func appWillResign() {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     func hideCover() {
@@ -49,6 +55,42 @@ class LaunchCoverPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             (self.bridge?.viewController as? MainViewController)?.hideCover()
             call.resolve()
+        }
+    }
+}
+
+/// Plays the game's sounds natively. The page renders each sound to WAV once at startup (src/ui/nativeSound.ts) and
+/// loads them here; WebKit holds web audio for seconds after the app returns from the background, native audio isn't.
+@objc(NativeSoundPlugin)
+class NativeSoundPlugin: CAPPlugin, CAPBridgedPlugin {
+    let identifier = "NativeSoundPlugin"
+    let jsName = "NativeSound"
+    let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "load", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "play", returnType: CAPPluginReturnNone),
+    ]
+    private var sounds: [String: [Data]] = [:]
+    private var playing: [AVAudioPlayer] = []
+
+    @objc func load(_ call: CAPPluginCall) {
+        guard let obj = call.getObject("sounds") else { return call.reject("no sounds") }
+        var loaded: [String: [Data]] = [:]
+        for (name, takes) in obj {
+            loaded[name] = (takes as? [String] ?? []).compactMap { Data(base64Encoded: $0) }
+        }
+        DispatchQueue.main.async {
+            self.sounds = loaded
+            call.resolve()
+        }
+    }
+
+    @objc func play(_ call: CAPPluginCall) {
+        guard let name = call.getString("name") else { return }
+        DispatchQueue.main.async {
+            guard let data = self.sounds[name]?.randomElement(), let player = try? AVAudioPlayer(data: data) else { return }
+            self.playing.removeAll { !$0.isPlaying } // finished ones
+            self.playing.append(player)
+            player.play()
         }
     }
 }

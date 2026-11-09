@@ -4,6 +4,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { cardDeal, cardPlay } from './cardSounds';
+import { IN_APP } from '../net/site';
 
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
@@ -23,38 +24,19 @@ function scheduleIdle() {
     }
   }, IDLE_MS);
 }
-// Audio debug log (hidden: tap the build line on the home screen five times). Records what iOS does with audio when
-// the page leaves the screen and comes back, so a delay on a real phone can be diagnosed.
-const audioLog: string[] = [];
-const logListeners = new Set<() => void>();
-let logSnapshot: readonly string[] = [];
-let lastLine = '';
-let repeat = 0;
-export function alog(msg: string) {
-  const now = (performance.now() / 1000).toFixed(1);
-  if (msg === lastLine) {
-    repeat++;
-    audioLog[audioLog.length - 1] = `${now} ${msg} ×${repeat + 1}`;
-  } else {
-    lastLine = msg;
-    repeat = 0;
-    audioLog.push(`${now} ${msg}`);
-    if (audioLog.length > 60) audioLog.shift();
-  }
-  logSnapshot = [...audioLog];
-  for (const fn of logListeners) fn();
+// iOS app: sounds are rendered once and played natively (nativeSound.ts), since WebKit holds web audio for several
+// seconds after the app returns from the background. Until that's set up the app plays nothing; with an older app
+// build that lacks the native player, nativeSound.ts calls useWebAudio() and web audio is used as on the site.
+type NativePlayer = (name: SoundName) => void;
+let native: NativePlayer | null = null;
+let nativePending = IN_APP;
+export function setNativePlayer(p: NativePlayer) {
+  native = p;
+  nativePending = false;
 }
-export function useAudioLog(): readonly string[] {
-  return useSyncExternalStore(
-    (fn) => {
-      logListeners.add(fn);
-      return () => logListeners.delete(fn);
-    },
-    () => logSnapshot,
-  );
+export function useWebAudio() {
+  nativePending = false;
 }
-let inTap = false;
-let playedSinceVisible = false;
 
 let muted = loadMuted();
 const listeners = new Set<() => void>();
@@ -92,12 +74,8 @@ function audio(): AudioContext | null {
     try {
       ctx = new AudioContext();
     } catch {
-      alog('new context failed');
       return null;
     }
-    const made = ctx;
-    alog(`new context (${inTap ? 'tap' : 'no tap'}) → ${made.state}`);
-    made.onstatechange = () => alog(`state → ${made.state}`);
     scheduleIdle();
   }
   // 'suspended' after autoplay blocking, 'interrupted' (Safari) after the page was in the background
@@ -105,82 +83,20 @@ function audio(): AudioContext | null {
     // Ask again on every call, never just wait on an earlier request: iOS leaves a resume asked for outside a tap
     // pending forever, and only a resume called inside a tap goes through.
     const a = ctx;
-    const asked = performance.now();
-    alog(`resume asked (${inTap ? 'tap' : 'no tap'}, ${a.state})`);
-    const r: Promise<void> = a
-      .resume()
-      .then(
-        () => alog(`resume done ${Math.round(performance.now() - asked)} ms → ${a.state}`),
-        (e) => alog(`resume failed: ${(e as Error)?.name ?? e}`),
-      )
-      .finally(() => {
-        if (resuming === r) resuming = null;
-      });
+    const r: Promise<void> = a.resume().catch(() => {}).finally(() => {
+      if (resuming === r) resuming = null;
+    });
     resuming = r;
     scheduleIdle();
   }
   return ctx;
 }
 
-/** Set when the context says it's running but its clock is stuck: it's replaced at the next tap. */
-let stale = false;
-
-/**
- * After returning to the page, iOS holds the audio for a few seconds (or until a tap): the context reports 'running'
- * with its clock frozen, or stays 'suspended' with resume requests left waiting. Keep asking until the clock really
- * moves, so sound is back the moment iOS lets go, not at the next sound after that. If it's still stuck, the next tap
- * replaces the context (only a tap may start a new one).
- */
-let reviveTimer: ReturnType<typeof setInterval> | null = null;
-function revive() {
-  if (reviveTimer) clearInterval(reviveTimer);
-  const started = performance.now();
-  let last = ctx?.currentTime ?? -1;
-  const stop = () => {
-    if (reviveTimer) clearInterval(reviveTimer);
-    reviveTimer = null;
-  };
-  reviveTimer = setInterval(() => {
-    const a = ctx;
-    if (!a || document.visibilityState !== 'visible' || performance.now() - started > 20000) return stop();
-    if (a.state === 'running' && a.currentTime !== last) {
-      alog('clock moving');
-      stale = false;
-      return stop();
-    }
-    last = a.currentTime;
-    if (a.state !== 'running') audio(); // asks to resume
-    else if (!stale && performance.now() - started > 300) {
-      stale = true;
-      alog('clock stuck → new context at next tap');
-    }
-  }, 250);
-}
-
-if (typeof window !== 'undefined') {
-  // the iOS app calls this as it comes back to the foreground, after reactivating its audio (MainViewController.swift)
-  (window as unknown as { __shengjiAudioNudge?: () => void }).__shengjiAudioNudge = () => {
-    alog('app active (native)');
-    audio();
-    revive();
-  };
-}
-
 // Unlock audio on interaction. Not just the first one: phones suspend audio whenever the page leaves the screen,
-// and a tap is always allowed to start it again.
+// and only a tap is guaranteed to be allowed to start it again.
 if (typeof window !== 'undefined') {
   const unlock = () => {
-    inTap = true;
-    setTimeout(() => (inTap = false));
-    if (stale && ctx) {
-      // inside a tap, so the new context is allowed to start
-      stale = false;
-      void ctx.close().catch(() => {});
-      ctx = null;
-      noise = null;
-      idleSuspended = false;
-    }
-    audio();
+    if (!native && !nativePending) audio();
   };
   window.addEventListener('pointerdown', unlock);
   // iOS only lets audio start on a touch's end or a click, not on its start
@@ -188,22 +104,17 @@ if (typeof window !== 'undefined') {
   window.addEventListener('click', unlock);
   window.addEventListener('keydown', unlock);
   document.addEventListener('visibilitychange', () => {
-    alog(`page ${document.visibilityState} (${ctx?.state ?? 'no context'})`);
-    playedSinceVisible = false;
     if (document.visibilityState === 'hidden') {
-      // Leave the context alone: iOS interrupts it in the background and brings an interrupted context back by itself
-      // when we return. One we suspend (or a new one) only starts again from a tap — the audio log on a phone showed
-      // every resume asked for without a tap staying 'suspended' until the next touch.
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = null;
-    } else {
-      audio();
-      revive();
-    }
+      // iOS can leave a backgrounded context "running" but silent; start a fresh one when we're back
+      void ctx?.close().catch(() => {});
+      ctx = null;
+      noise = null;
+      idleSuspended = false;
+    } else if (!native && !nativePending) audio();
   });
 }
 
-function noiseBuffer(a: AudioContext): AudioBuffer {
+function noiseBuffer(a: BaseAudioContext): AudioBuffer {
   if (!noise) {
     noise = a.createBuffer(1, a.sampleRate * 0.5, a.sampleRate);
     const d = noise.getChannelData(0);
@@ -212,15 +123,14 @@ function noiseBuffer(a: AudioContext): AudioBuffer {
   return noise;
 }
 
-function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume = 1) {
+function play(name: SoundName) {
   if (muted || document.visibilityState === 'hidden') return;
+  if (native) return native(name);
+  if (nativePending) return;
+  const { build, volume } = SOUNDS[name];
   const a = audio();
   if (!a) return;
   const go = () => {
-    if (!playedSinceVisible) {
-      playedSinceVisible = true;
-      alog('sound played');
-    }
     const out = a.createGain();
     out.gain.value = volume;
     out.connect(a.destination);
@@ -229,17 +139,17 @@ function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume
   };
   if (a.state === 'running') return go();
   // suspended by us for battery: play once it's back, unless that took so long the sound would be late
-  if (!idleSuspended || !resuming) return alog(`sound dropped (${a.state})`);
+  if (!idleSuspended || !resuming) return;
   const asked = performance.now();
   void resuming.then(() => {
     if (a === ctx && a.state === 'running' && performance.now() - asked < 250) {
       idleSuspended = false;
       go();
-    } else alog(`sound dropped (late, ${a.state})`);
+    }
   });
 }
 
-function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: number, gain: number, type: OscillatorType = 'sine', attack = 0.01, toFreq?: number) {
+function tone(a: BaseAudioContext, out: AudioNode, t: number, freq: number, dur: number, gain: number, type: OscillatorType = 'sine', attack = 0.01, toFreq?: number) {
   const o = a.createOscillator();
   o.type = type;
   o.frequency.setValueAtTime(freq, t);
@@ -256,18 +166,27 @@ function tone(a: AudioContext, out: AudioNode, t: number, freq: number, dur: num
 /** Overall level — kept low so effects sit in the background. */
 const MASTER = 0.45;
 
-export const sfx = {
+type Build = (a: BaseAudioContext, out: GainNode, t: number) => void;
+
+export type SoundName = 'card' | 'deal' | 'sweep' | 'coin' | 'declare' | 'turn' | 'win' | 'lose' | 'error';
+
+/** Every sound: how to build it, its level, and its length (for rendering it ahead of time in the app). */
+export const SOUNDS: Record<SoundName, { build: Build; volume: number; dur: number }> = {
   /** A card played: a swish and a light tap (see cardSounds.ts). */
-  card() {
-    play((a, out, t) => cardPlay(a, out, noiseBuffer(a), t), MASTER * 0.7);
+  card: {
+    build: (a, out, t) => cardPlay(a, out, noiseBuffer(a), t),
+    volume: MASTER * 0.7,
+    dur: 0.5,
   },
   /** A card flicked across the table while dealing: quieter than a play, since a deal is a hundred of them. */
-  deal() {
-    play((a, out, t) => cardDeal(a, out, noiseBuffer(a), t), MASTER * 0.4);
+  deal: {
+    build: (a, out, t) => cardDeal(a, out, noiseBuffer(a), t),
+    volume: MASTER * 0.4,
+    dur: 0.4,
   },
   /** Cards gathered to the trick winner: a quiet brush. */
-  sweep() {
-    play((a, out, t) => {
+  sweep: {
+    build: (a, out, t) => {
       const src = a.createBufferSource();
       src.buffer = noiseBuffer(a);
       const f = a.createBiquadFilter();
@@ -282,38 +201,68 @@ export const sfx = {
       src.connect(f).connect(g).connect(out);
       src.start(t);
       src.stop(t + 0.42);
-    }, MASTER);
+    },
+    volume: MASTER,
+    dur: 0.5,
   },
   /** Attackers capture points: a gentle two-note chime. */
-  coin() {
-    play((a, out, t) => {
+  coin: {
+    build: (a, out, t) => {
       tone(a, out, t, 1047, 0.4, 0.05, 'sine', 0.01);
       tone(a, out, t + 0.08, 1568, 0.5, 0.04, 'sine', 0.01);
-    }, MASTER);
+    },
+    volume: MASTER,
+    dur: 0.7,
   },
   /** Trump declared: a soft, low bell. */
-  declare() {
-    play((a, out, t) => {
+  declare: {
+    build: (a, out, t) => {
       tone(a, out, t, 262, 1.2, 0.12, 'sine', 0.02);
       tone(a, out, t, 392, 0.9, 0.05, 'sine', 0.02);
-    }, MASTER);
+    },
+    volume: MASTER,
+    dur: 1.3,
   },
   /** It's your turn: one quiet note. */
-  turn() {
-    play((a, out, t) => tone(a, out, t, 784, 0.45, 0.045, 'sine', 0.02), MASTER);
+  turn: {
+    build: (a, out, t) => tone(a, out, t, 784, 0.45, 0.045, 'sine', 0.02),
+    volume: MASTER,
+    dur: 0.6,
   },
-  win() {
-    play((a, out, t) => {
+  win: {
+    build: (a, out, t) => {
       [523, 659, 784].forEach((f, i) => tone(a, out, t + i * 0.13, f, 0.6, 0.07, 'sine', 0.02));
-    }, MASTER);
+    },
+    volume: MASTER,
+    dur: 0.95,
   },
-  lose() {
-    play((a, out, t) => {
+  lose: {
+    build: (a, out, t) => {
       tone(a, out, t, 392, 0.5, 0.06, 'sine', 0.02);
       tone(a, out, t + 0.2, 330, 0.7, 0.05, 'sine', 0.02);
-    }, MASTER);
+    },
+    volume: MASTER,
+    dur: 1.0,
   },
-  error() {
-    play((a, out, t) => tone(a, out, t, 220, 0.15, 0.05, 'sine', 0.01, 180), MASTER);
+  error: {
+    build: (a, out, t) => tone(a, out, t, 220, 0.15, 0.05, 'sine', 0.01, 180),
+    volume: MASTER,
+    dur: 0.25,
   },
 };
+
+export const sfx = Object.fromEntries(Object.keys(SOUNDS).map((n) => [n, () => play(n as SoundName)])) as Record<
+  SoundName,
+  () => void
+>;
+
+/** Renders a sound offline (no audio output needed) for the app's native player. */
+export async function renderSound(name: SoundName, sampleRate: number): Promise<Float32Array> {
+  const { build, volume, dur } = SOUNDS[name];
+  const a = new OfflineAudioContext(1, Math.ceil(sampleRate * dur), sampleRate);
+  const out = a.createGain();
+  out.gain.value = volume;
+  out.connect(a.destination);
+  build(a, out, 0.005);
+  return (await a.startRendering()).getChannelData(0);
+}

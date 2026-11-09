@@ -28,8 +28,13 @@ if (IN_APP) {
       await u.applyPendingUpdate(); // reloads into a downloaded update, if there is one
       render();
       void u.checkForUpdate();
+      // sounds through the native player (src/ui/nativeSound.ts)
+      void import('./ui/nativeSound').then((m) => m.setupNativeSound());
     })
-    .catch(render);
+    .catch(() => {
+      render();
+      void import('./ui/nativeSound').then((m) => m.setupNativeSound());
+    });
 } else {
   render();
 }

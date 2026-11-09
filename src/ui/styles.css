@@ -1008,7 +1008,3 @@ input { font: inherit; }
 .launch-intro { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
 .launch-intro img { position: absolute; left: 50%; top: 50%; transform-origin: 50% 50%; max-width: none; }
 
-/* hidden audio debug panel (AudioLog.tsx) */
-.audio-log { position: fixed; left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom) + 8px); z-index: 2000; max-height: 45vh; overflow: auto; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.82); color: #cfe; font: 11px/1.35 ui-monospace, Menlo, monospace; pointer-events: auto; }
-.audio-log-head { display: flex; gap: 6px; align-items: center; color: #fff; margin-bottom: 4px; }
-.audio-log-head button { margin-left: auto; background: #333; color: #fff; border: 0; border-radius: 6px; padding: 2px 8px; font: inherit; }
