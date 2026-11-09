@@ -10,6 +10,7 @@ import { Settings } from '../net/protocol';
 import { Lobby } from './Lobby';
 import { Table } from './Table';
 import { LaunchIntro } from './LaunchIntro';
+import { AudioLog } from './AudioLog';
 import { IN_APP } from '../net/site';
 
 export type StartMode =
@@ -104,6 +105,7 @@ export function App() {
         </motion.div>
       </AnimatePresence>
       </div>
+      <AudioLog />
       {intro && <LaunchIntro onReveal={() => setIntro('shown')} onDone={() => setIntro(null)} />}
       </DisplayProvider>
     </StageContext.Provider>

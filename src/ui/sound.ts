@@ -23,6 +23,39 @@ function scheduleIdle() {
     }
   }, IDLE_MS);
 }
+// Audio debug log (hidden: tap the build line on the home screen five times). Records what iOS does with audio when
+// the page leaves the screen and comes back, so a delay on a real phone can be diagnosed.
+const audioLog: string[] = [];
+const logListeners = new Set<() => void>();
+let logSnapshot: readonly string[] = [];
+let lastLine = '';
+let repeat = 0;
+export function alog(msg: string) {
+  const now = (performance.now() / 1000).toFixed(1);
+  if (msg === lastLine) {
+    repeat++;
+    audioLog[audioLog.length - 1] = `${now} ${msg} ×${repeat + 1}`;
+  } else {
+    lastLine = msg;
+    repeat = 0;
+    audioLog.push(`${now} ${msg}`);
+    if (audioLog.length > 60) audioLog.shift();
+  }
+  logSnapshot = [...audioLog];
+  for (const fn of logListeners) fn();
+}
+export function useAudioLog(): readonly string[] {
+  return useSyncExternalStore(
+    (fn) => {
+      logListeners.add(fn);
+      return () => logListeners.delete(fn);
+    },
+    () => logSnapshot,
+  );
+}
+let inTap = false;
+let playedSinceVisible = false;
+
 let muted = loadMuted();
 const listeners = new Set<() => void>();
 
@@ -59,8 +92,12 @@ function audio(): AudioContext | null {
     try {
       ctx = new AudioContext();
     } catch {
+      alog('new context failed');
       return null;
     }
+    const made = ctx;
+    alog(`new context (${inTap ? 'tap' : 'no tap'}) → ${made.state}`);
+    made.onstatechange = () => alog(`state → ${made.state}`);
     scheduleIdle();
   }
   // 'suspended' after autoplay blocking, 'interrupted' (Safari) after the page was in the background
@@ -68,9 +105,17 @@ function audio(): AudioContext | null {
     // Ask again on every call, never just wait on an earlier request: iOS leaves a resume asked for outside a tap
     // pending forever, and only a resume called inside a tap goes through.
     const a = ctx;
-    const r: Promise<void> = a.resume().catch(() => {}).finally(() => {
-      if (resuming === r) resuming = null;
-    });
+    const asked = performance.now();
+    alog(`resume asked (${inTap ? 'tap' : 'no tap'}, ${a.state})`);
+    const r: Promise<void> = a
+      .resume()
+      .then(
+        () => alog(`resume done ${Math.round(performance.now() - asked)} ms → ${a.state}`),
+        (e) => alog(`resume failed: ${(e as Error)?.name ?? e}`),
+      )
+      .finally(() => {
+        if (resuming === r) resuming = null;
+      });
     resuming = r;
     scheduleIdle();
   }
@@ -89,7 +134,10 @@ function checkClock() {
   if (!a || a.state !== 'running') return;
   const t0 = a.currentTime;
   setTimeout(() => {
-    if (a === ctx && a.state === 'running' && a.currentTime === t0 && document.visibilityState === 'visible') stale = true;
+    if (a === ctx && a.state === 'running' && a.currentTime === t0 && document.visibilityState === 'visible') {
+      stale = true;
+      alog('clock stuck → new context at next tap');
+    } else if (a === ctx) alog(`clock ok (${a.state})`);
   }, 300);
 }
 
@@ -97,6 +145,8 @@ function checkClock() {
 // and a tap is always allowed to start it again.
 if (typeof window !== 'undefined') {
   const unlock = () => {
+    inTap = true;
+    setTimeout(() => (inTap = false));
     if (stale && ctx) {
       // inside a tap, so the new context is allowed to start
       stale = false;
@@ -113,6 +163,8 @@ if (typeof window !== 'undefined') {
   window.addEventListener('click', unlock);
   window.addEventListener('keydown', unlock);
   document.addEventListener('visibilitychange', () => {
+    alog(`page ${document.visibilityState} (${ctx?.state ?? 'no context'})`);
+    playedSinceVisible = false;
     if (document.visibilityState === 'hidden') {
       // Pause, don't close: iOS lets a context that was already started resume without a tap, so sound is back as
       // soon as we are. (A new context would stay silent until the next tap, or seconds after it on iOS.)
@@ -142,6 +194,10 @@ function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume
   const a = audio();
   if (!a) return;
   const go = () => {
+    if (!playedSinceVisible) {
+      playedSinceVisible = true;
+      alog('sound played');
+    }
     const out = a.createGain();
     out.gain.value = volume;
     out.connect(a.destination);
@@ -150,13 +206,13 @@ function play(build: (a: AudioContext, out: GainNode, t: number) => void, volume
   };
   if (a.state === 'running') return go();
   // suspended by us for battery: play once it's back, unless that took so long the sound would be late
-  if (!idleSuspended || !resuming) return;
+  if (!idleSuspended || !resuming) return alog(`sound dropped (${a.state})`);
   const asked = performance.now();
   void resuming.then(() => {
     if (a === ctx && a.state === 'running' && performance.now() - asked < 250) {
       idleSuspended = false;
       go();
-    }
+    } else alog(`sound dropped (late, ${a.state})`);
   });
 }
 

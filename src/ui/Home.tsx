@@ -9,6 +9,7 @@ import type { StartMode } from './App';
 import { CardBack, CardFace } from './Card';
 import { Back, Background, Felt, useDisplay } from './display';
 import { Modal } from './Modal';
+import { tapForAudioLog } from './AudioLog';
 
 const FAN: Card[] = [
   { id: 'a', suit: 'S', rank: 14 },
@@ -329,7 +330,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
             Display
           </button>
         </div>
-        <div className="version" title={`Built ${new Date(__BUILD_TIME__).toLocaleString()}`}>
+        <div className="version" title={`Built ${new Date(__BUILD_TIME__).toLocaleString()}`} onClick={tapForAudioLog}>
           v{__APP_VERSION__} · build {__BUILD_SHA__} ·{' '}
           {new Date(__BUILD_TIME__).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
         </div>
