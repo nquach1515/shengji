@@ -131,9 +131,10 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
       )}
 
       <div className="table-wrap" ref={wrapRef}>
-        <motion.div className="oval" initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.6 }}>
+        {/* entrance as a CSS animation: it runs on the compositor, so it stays smooth while the table first mounts */}
+        <div className="oval oval-enter">
           <div className="watermark">升级</div>
-        </motion.div>
+        </div>
         {view.seats.map((seat, i) =>
           seat && i !== me ? <SeatBox key={i} seatIdx={i} seat={seat} view={view} send={send} /> : null,
         )}
@@ -270,7 +271,8 @@ function Hud({
     <div className="hud">
       <TeamPanel view={view} team={usTeam} />
       <div className="center">
-        <motion.div className="plate trump-pill" layout>
+        {/* re-measured only when its text changes; `layout` alone measures on every update, a forced layout each time */}
+        <motion.div className="plate trump-pill" layout layoutDependency={`${view.trumpSuit}|${view.trumpRank}|${d?.seat}|${d?.cards.length}`}>
           <motion.div
             key={String(view.trumpSuit)}
             className={`medallion ${redSuit(view.trumpSuit) ? 'red' : ''} suit-${view.trumpSuit}`}
@@ -726,22 +728,18 @@ function RoundSplash({ view }: { view: PlayerView }) {
     setShown(view.round);
     setTimeout(() => setShown(null), 1600);
   }, [view.round, view.phase]);
+  // A CSS animation (in, hold, out over 1.6 s) rather than framer-motion's main-thread one: this shows while the table
+  // first mounts and the deal starts, when the main thread is busiest, and the compositor keeps it smooth regardless.
   return (
     <div className="splash" style={{ top: '30%' }}>
-    <AnimatePresence>
       {shown === view.round && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -20 }}
-        >
+        <div className="round-splash">
           <div className="cap" style={{ fontSize: 36 }}>
             Round {view.round}
           </div>
           <div className="sub2">Playing {levelLabel(view.trumpRank)}s</div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
     </div>
   );
 }
@@ -774,6 +772,7 @@ function Toasts({ view }: { view: PlayerView }) {
           <motion.div
             key={t.id}
             layout
+            layoutDependency={items.map((x) => x.id).join()}
             className={`toast ${t.kind}`}
             initial={{ opacity: 0, y: -16, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
