@@ -1,0 +1,31 @@
+# Deploys shengji-tractor.com to Cloudflare on every push to main (the same as `npm run build && npx wrangler deploy`).
+# That also publishes the iOS app's self-update (dist/app/), so the app picks up the change on its next launches.
+# Needs repository secrets CLOUDFLARE_API_TOKEN (an "Edit Cloudflare Workers" token) and CLOUDFLARE_ACCOUNT_ID.
+name: Deploy site to Cloudflare
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-site
+  cancel-in-progress: false # deploy every push, in order
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.86.0'
+          command: deploy
