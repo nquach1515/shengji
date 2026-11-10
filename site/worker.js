@@ -21,9 +21,23 @@ const APPLE_APP_SITE_ASSOCIATION = JSON.stringify({
   },
 });
 
+/** Invite links (/join/CODE redirects to /?room=CODE): the preview says whose table it is, not just the game's name. */
+function invitePreview(response, code) {
+  const set = (content) => ({ element: (e) => e.setAttribute('content', content) });
+  const title = `Join my Shengji table · ${code}`;
+  const text = 'Tap to take a seat — play in your browser or the Shengji app. The classic Chinese partnership card game.';
+  return new HTMLRewriter()
+    .on('meta[property="og:title"]', set(title))
+    .on('meta[name="description"]', set(text))
+    .on('meta[property="og:description"]', set(text))
+    .on('meta[property="og:url"]', set(`https://shengji-tractor.com/join/${code}`))
+    .transform(response);
+}
+
 export default {
   async fetch(request, env) {
-    const path = new URL(request.url).pathname;
+    const url = new URL(request.url);
+    const path = url.pathname;
     if (path === '/.well-known/apple-app-site-association' || path === '/apple-app-site-association') {
       return new Response(APPLE_APP_SITE_ASSOCIATION, { headers: { 'content-type': 'application/json' } });
     }
@@ -31,6 +45,10 @@ export default {
     // invite links: /join/CODE opens the app when it's installed (above); otherwise the site's invite screen
     const join = /^\/join\/([a-z]{4})\/?$/i.exec(path);
     if (join) return Response.redirect(new URL(`/?room=${join[1].toUpperCase()}`, request.url).href, 302);
+    const room = url.searchParams.get('room');
+    if ((path === '/' || path === '/index.html') && room && /^[a-z]{4}$/i.test(room)) {
+      return invitePreview(await env.ASSETS.fetch(request), room.toUpperCase());
+    }
     return env.ASSETS.fetch(request);
   },
 };

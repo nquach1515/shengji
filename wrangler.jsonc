@@ -7,7 +7,10 @@
   "compatibility_date": "2025-09-01",
   "assets": {
     "directory": "./dist",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // the main page goes through site/worker.js (invite links get their own link preview); everything else is served
+    // straight from dist/ as before, and paths with no file (/join, /room, the iOS link file) reach the Worker anyway
+    "run_worker_first": ["/", "/index.html"]
   },
   "services": [{ "binding": "RELAY", "service": "shengji-relay" }]
 }
