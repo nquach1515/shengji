@@ -1008,3 +1008,7 @@ input { font: inherit; }
 .launch-intro { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
 .launch-intro img { position: absolute; left: 50%; top: 50%; transform-origin: 50% 50%; max-width: none; }
 
+
+/* popups: the page behind doesn't scroll (Modal.tsx sets modal-open), and scrolling inside a popup stops at its ends */
+html.modal-open .home, html.modal-open .lobby { overflow: hidden; }
+.modal-back, .modal, .history-list { overscroll-behavior: contain; }
