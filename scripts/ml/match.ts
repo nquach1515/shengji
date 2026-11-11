@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { learnedPlay, learnedPlayWith } from '../../src/game/policy';
 import { easyMove, liveMove } from '../../src/game/live';
 import { READ_PARAMS } from '../../src/game/inference';
-import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove, DEAL_BIAS, searchStats, withDealBias } from '../../src/game/search';
+import { attackerValue, cashTopCardMove, feedLikelyMove, feedTrickMove, hopelessTrickMove, HOLD_THRESHOLD, keepHighCards, LEVEL_WEIGHT, SETTLED_Z, noRiskyPointLead, noRiskyPointsMove, noUnderlead, priorMove, searchPlay, SEARCH_SAMPLES, settledTrickMove, DEAL_BIAS, searchStats, withDealBias } from '../../src/game/search';
 
 type Policy = (s: GameState, seat: number) => string[];
 // a retrained model to compare against the live one: NEW_WEIGHTS=path/to/weights.json
@@ -119,11 +119,12 @@ const rawOut = process.argv[5]; // optional: write per-deal results here for poo
 // live-n32, live-read-n64, live-bias-n16...: the live pipeline for this deck count with a fixed number of sampled deals (and reading)
 for (const name of [a, b]) {
   // live-es-n96: stops early once settled, after at least 32 deals (16 with 3 decks), as the live bots do
+  // (ES_FLOOR and ES_Z override where it may stop and how settled it must be)
   // live-new-n16: with the retrained model (NEW_WEIGHTS) proposing
   const m = name.match(/^live(-read|-bias|-es|-new)?-n(\d+)$/);
   if (!m) continue;
   const search = (s: GameState, seat: number, prior: string[]) =>
-    searchPlay(s, seat, Number(m[2]), false, prior, LEVEL_WEIGHT, m[1] === '-read' ? READ_PARAMS : undefined, m[1] === '-es' ? (decksOf(s) === 3 ? 16 : 32) : undefined);
+    searchPlay(s, seat, Number(m[2]), false, prior, LEVEL_WEIGHT, m[1] === '-read' ? READ_PARAMS : undefined, m[1] === '-es' ? Number(process.env.ES_FLOOR ?? (decksOf(s) === 3 ? 16 : 32)) : undefined, Number(process.env.ES_Z ?? SETTLED_Z));
   const propose = m[1] === '-new' ? newPlay : learnedPlay;
   configs[name] = (s, seat) => liveMove(s, seat, (prior) => (m[1] === '-bias' ? withDealBias(DEAL_BIAS[decksOf(s) === 3 ? 3 : 2], () => search(s, seat, prior)) : search(s, seat, prior)), undefined, propose);
 }

@@ -269,6 +269,8 @@ export function searchPlay(
   read?: ReadParams,
   /** stop early once settled, after at least this many deals (the live bots' rule; for testing it) */
   stopAfter?: number,
+  /** how settled: no rival within this many standard errors (SETTLED_Z live) */
+  stopZ = SETTLED_Z,
 ): string[] {
   if (leadsOnly && s.trick!.plays.length > 0) return prior ?? botPlay(s, seat);
   const options = moveOptions(s, seat);
@@ -290,7 +292,7 @@ export function searchPlay(
       const d = determinize(s, seat);
       deals.push(d);
       options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
-      if (stopAfter !== undefined && !read && deals.length >= stopAfter && deals.length % 8 === 0 && settled(scores, choose(scores, start, margin))) break;
+      if (stopAfter !== undefined && !read && deals.length >= stopAfter && deals.length % 8 === 0 && settled(scores, choose(scores, start, margin), stopZ)) break;
     }
     searchStats.deals += deals.length;
     searchStats.searches++;
