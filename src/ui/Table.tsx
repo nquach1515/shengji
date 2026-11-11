@@ -15,7 +15,6 @@ import { useStage } from './stage';
 import { setMuted, sfx, useMuted } from './sound';
 import { haptic } from './haptics';
 import { inviteLink } from '../net/site';
-import { seatNames, useSharedView, viewProps } from './shareView';
 
 interface Props {
   view: PlayerView;
@@ -48,9 +47,7 @@ function useSize(ref: React.RefObject<HTMLElement>) {
   return size;
 }
 
-export function Table({ view: viewProp, send: sendProp, onLeave: onLeaveProp, netState, netDetail }: Props) {
-  // unchanged parts of the view keep their identity, so memoized parts below can tell what actually changed
-  const view = useSharedView(viewProp);
+export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, netDetail }: Props) {
   // Everything below that doesn't depend on your card selection is memoized, so tapping a card re-renders only the
   // hand and the action bar (before, every tap re-rendered the whole table). That needs stable props: these wrappers
   // keep the same identity across renders while always calling the latest functions.
@@ -67,12 +64,9 @@ export function Table({ view: viewProp, send: sendProp, onLeave: onLeaveProp, ne
   const [showDisplay, setShowDisplay] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const size = useSize(wrapRef);
-  // depends on names only, not on the seats' card counts, which change with every card dealt
-  const names = seatNames(view)[0];
   const name = useCallback(
     (seat: number) => (seat === view.you ? 'You' : view.seats[seat]?.name ?? `Seat ${seat + 1}`),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [view.you, names],
+    [view.you, view.seats],
   );
   const onLast = useCallback(() => setShowLast(true), []);
   const onRules = useCallback(() => setShowRules(true), []);
@@ -204,7 +198,7 @@ export function Table({ view: viewProp, send: sendProp, onLeave: onLeaveProp, ne
             hintPending={hintPending}
           />
         </div>
-        <MemoHand
+        <Hand
           cards={view.hand}
           ctx={ctx}
           selected={selected}
@@ -1492,26 +1486,13 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
 }
 
 // Memoized: these depend on the game view (and stable callbacks), not on which cards you've selected, so a tap in your
-// hand skips them. Each also lists the view fields it reads (including through children it passes `view` to), so a
-// new view re-renders it only when one of those changed: a card dealt no longer redraws the scoreboard, a card played
-// no longer redraws the seats. Keep these lists in step with the components.
-const MemoHud = memo(
-  Hud,
-  viewProps(
-    ['declaration', 'isHost', 'online', 'roomCode', 'rules', 'tricks', 'trumpRank', 'trumpSuit', 'you', 'attackerPoints', 'capturedCards', 'dealer', 'levels', 'phase', 'pointsPlayed'],
-    seatNames,
-  ),
-);
-const MemoSeatBox = memo(
-  SeatBox,
-  viewProps(['dealer', 'declaration', 'isHost', 'phase', 'turn', 'voids', 'you'], (v) => [v.trick ? v.trick.winner : undefined]),
-);
-const MemoDealAnimation = memo(DealAnimation, viewProps(['dealer', 'deckRemaining', 'phase', 'rules', 'you']));
-const MemoTrickArea = memo(TrickArea, viewProps(['trick', 'tricksPlayed', 'you']));
-const MemoDeclareSplash = memo(DeclareSplash, viewProps(['declaration', 'phase', 'round', 'rules']));
-const MemoRoundSplash = memo(RoundSplash, viewProps(['phase', 'round', 'trumpRank']));
-const MemoThrowSplash = memo(ThrowSplash, viewProps(['events', 'you']));
-const MemoEmotes = memo(Emotes, viewProps(['emotes', 'you']));
-const MemoToasts = memo(Toasts, viewProps(['error', 'events']));
-// your hand: skipped when the cards, trump, selection and dealing state are all unchanged (e.g. while bots play)
-const MemoHand = memo(Hand);
+// hand skips them entirely.
+const MemoHud = memo(Hud);
+const MemoSeatBox = memo(SeatBox);
+const MemoDealAnimation = memo(DealAnimation);
+const MemoTrickArea = memo(TrickArea);
+const MemoDeclareSplash = memo(DeclareSplash);
+const MemoRoundSplash = memo(RoundSplash);
+const MemoThrowSplash = memo(ThrowSplash);
+const MemoEmotes = memo(Emotes);
+const MemoToasts = memo(Toasts);
