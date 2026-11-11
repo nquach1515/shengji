@@ -336,7 +336,12 @@ export function searchPlayTimed(
   const scores: number[][] = options.map(() => []);
   const reader = playReader(s, seat, read);
   const logw: number[] = [];
-  const stopFloor = decksOf(s) === 2 ? Math.max(minSamples, 32) : undefined;
+  const three = decksOf(s) === 3;
+  const stopFloor = Math.max(minSamples, 32);
+  // 3 decks: stricter (no rival within 3 standard errors, not 2). Over 538 searched 3-deck moves at the live budget
+  // it used 57% fewer deals, picked differently on 1.7% of moves, and those picks rated as good as the full search's
+  // by the full search itself (scripts in the commit message). The looser 2-deck rule changed 5% there.
+  const stopZ = three ? 3 : SETTLED_Z;
   try {
     while (scores[0].length < maxSamples && (scores[0].length < minSamples || Date.now() - t0 < budgetMs)) {
       const d = determinize(s, seat);
@@ -344,9 +349,9 @@ export function searchPlayTimed(
       options.forEach((m, i) => scores[i].push(rollout(cloneState(d), seat, m, levelWeight)));
       logw.push(lw);
       // battery: once the choice is settled, stop (checked every 8 deals past 32). Tested neutral for 2 decks
-      // (450 duplicate deals); for 3 decks it leaned weaker, so it stays off there.
+      // (450 duplicate deals); 3 decks use the stricter test above.
       const n = scores[0].length;
-      if (!reader && stopFloor !== undefined && n >= stopFloor && n % 8 === 0 && settled(scores, choose(scores, start, (se) => Math.max(0.5, 1.5 * se)))) break;
+      if (!reader && n >= stopFloor && n % 8 === 0 && settled(scores, choose(scores, start, (se) => Math.max(0.5, 1.5 * se)), stopZ)) break;
     }
   } catch {
     if (scores[0].length < minSamples) return options[start];
