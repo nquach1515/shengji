@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'framer-motion';
 import { motion } from './motion';
-import { PointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, PointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Card } from '../game/cards';
 import { effSuit, isTrump, TrumpCtx } from '../game/rules';
 import { CardFace } from './Card';
@@ -131,27 +131,63 @@ export function Hand({ cards, ctx, selected, onChange, dealing }: Props) {
           const isSel = selected.has(card.id);
           const ty = isSel ? y - lift : y;
           return (
-            <motion.div
+            <Slot
               key={card.id}
-              data-card={card.id}
-              className="slot"
-              style={{ zIndex: z }}
-              initial={
+              card={card}
+              x={x}
+              y={ty}
+              rotate={rotate}
+              z={z}
+              selected={isSel}
+              trump={isTrump(card, ctx)}
+              from={
                 dealing
                   ? { x: width / 2 - cw / 2, y: -stage.h * 0.45, rotate: 160, opacity: 0, scale: 0.7 }
                   : { x, y: ty + 40, rotate, opacity: 0 }
               }
-              animate={{ x, y: ty, rotate, opacity: 1, scale: 1 }}
-              exit={{ y: ty - 140, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-              transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
-            >
-              <div className={`lift ${isSel ? 'sel' : ''}`}>
-                <CardFace card={card} trump={isTrump(card, ctx)} selected={isSel} />
-              </div>
-            </motion.div>
+            />
           );
         })}
       </AnimatePresence>
     </div>
   );
 }
+
+interface SlotProps {
+  card: Card;
+  x: number;
+  y: number;
+  rotate: number;
+  z: number;
+  selected: boolean;
+  trump: boolean;
+  /** where the card animates in from; only used when it first appears */
+  from: { x: number; y: number; rotate: number; opacity: number; scale?: number };
+}
+
+/**
+ * One card in the hand. Memoized on what it shows and where it sits, so a tap re-renders only the card tapped, and a
+ * new card dealt in re-renders only the cards that move (with 3 decks a hand is up to 38 cards).
+ */
+const Slot = memo(
+  function Slot({ card, x, y, rotate, z, selected, trump, from }: SlotProps) {
+    return (
+      <motion.div
+        data-card={card.id}
+        className="slot"
+        style={{ zIndex: z }}
+        initial={from}
+        animate={{ x, y, rotate, opacity: 1, scale: 1 }}
+        exit={{ y: y - 140, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
+        transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
+      >
+        <div className={`lift ${selected ? 'sel' : ''}`}>
+          <CardFace card={card} trump={trump} selected={selected} />
+        </div>
+      </motion.div>
+    );
+  },
+  // `from` only matters on the first render, and the card is the same card while its id is
+  (a, b) =>
+    a.card.id === b.card.id && a.x === b.x && a.y === b.y && a.rotate === b.rotate && a.z === b.z && a.selected === b.selected && a.trump === b.trump,
+);

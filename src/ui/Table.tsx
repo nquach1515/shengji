@@ -1,6 +1,6 @@
 import { AnimatePresence, animate, useMotionValue } from 'framer-motion';
 import { motion } from './motion';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
 import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
 import { decompose, effSuit, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
@@ -47,15 +47,35 @@ function useSize(ref: React.RefObject<HTMLElement>) {
   return size;
 }
 
-export function Table({ view, send, onLeave, netState, netDetail }: Props) {
-  const ctx: TrumpCtx = { suit: view.trumpSuit, rank: view.trumpRank };
+export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, netDetail }: Props) {
+  // Everything below that doesn't depend on your card selection is memoized, so tapping a card re-renders only the
+  // hand and the action bar (before, every tap re-rendered the whole table). That needs stable props: these wrappers
+  // keep the same identity across renders while always calling the latest functions.
+  const sendRef = useRef(sendProp);
+  sendRef.current = sendProp;
+  const send = useCallback((a: Action) => sendRef.current(a), []);
+  const leaveRef = useRef(onLeaveProp);
+  leaveRef.current = onLeaveProp;
+  const onLeave = useCallback(() => leaveRef.current(), []);
+  const ctx: TrumpCtx = useMemo(() => ({ suit: view.trumpSuit, rank: view.trumpRank }), [view.trumpSuit, view.trumpRank]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showLast, setShowLast] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showDisplay, setShowDisplay] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const size = useSize(wrapRef);
-  const name = (seat: number) => (seat === view.you ? 'You' : view.seats[seat]?.name ?? `Seat ${seat + 1}`);
+  const name = useCallback(
+    (seat: number) => (seat === view.you ? 'You' : view.seats[seat]?.name ?? `Seat ${seat + 1}`),
+    [view.you, view.seats],
+  );
+  const onLast = useCallback(() => setShowLast(true), []);
+  const onRules = useCallback(() => setShowRules(true), []);
+  const onDisplay = useCallback(() => setShowDisplay(true), []);
+  const onClear = useCallback(() => setSelected(new Set()), []);
+  const onHandChange = useCallback((next: Set<string>) => {
+    haptic.select();
+    setSelected(next);
+  }, []);
   const me = view.you;
 
   // Drop selections for cards that left the hand; adopt hints from the host.
@@ -123,7 +143,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
 
   return (
     <div className="game">
-      <Hud view={view} onLast={() => setShowLast(true)} onRules={() => setShowRules(true)} onDisplay={() => setShowDisplay(true)} onLeave={onLeave} send={send} />
+      <MemoHud view={view} onLast={onLast} onRules={onRules} onDisplay={onDisplay} onLeave={onLeave} send={send} />
       {view.online && netState !== 'online' && (
         <div className="conn-banner">
           <NetBadge state={netState} detail={netDetail} />
@@ -136,17 +156,17 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
           <div className="watermark">升级</div>
         </div>
         {view.seats.map((seat, i) =>
-          seat && i !== me ? <SeatBox key={i} seatIdx={i} seat={seat} view={view} send={send} /> : null,
+          seat && i !== me ? <MemoSeatBox key={i} seatIdx={i} seat={seat} view={view} send={send} /> : null,
         )}
-        <DealAnimation view={view} size={size} />
-        <TrickArea view={view} ctx={ctx} size={size} />
-        <DeclareSplash view={view} name={name} />
-        <RoundSplash view={view} />
-        <ThrowSplash view={view} name={name} />
-        <Emotes view={view} size={size} />
+        <MemoDealAnimation view={view} size={size} />
+        <MemoTrickArea view={view} ctx={ctx} size={size} />
+        <MemoDeclareSplash view={view} name={name} />
+        <MemoRoundSplash view={view} />
+        <MemoThrowSplash view={view} name={name} />
+        <MemoEmotes view={view} size={size} />
       </div>
 
-      <Toasts view={view} />
+      <MemoToasts view={view} />
 
       <div className="bottom">
         <div className="bar-row">
@@ -173,7 +193,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
             playError={playError}
             isThrow={isThrow}
             onPlay={doPlay}
-            onClear={() => setSelected(new Set())}
+            onClear={onClear}
             onHint={askHint}
             hintPending={hintPending}
           />
@@ -182,10 +202,7 @@ export function Table({ view, send, onLeave, netState, netDetail }: Props) {
           cards={view.hand}
           ctx={ctx}
           selected={selected}
-          onChange={(s) => {
-            haptic.select();
-            setSelected(s);
-          }}
+          onChange={onHandChange}
           dealing={view.phase === 'dealing'}
         />
       </div>
@@ -1467,3 +1484,15 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
     </Modal>
   );
 }
+
+// Memoized: these depend on the game view (and stable callbacks), not on which cards you've selected, so a tap in your
+// hand skips them entirely.
+const MemoHud = memo(Hud);
+const MemoSeatBox = memo(SeatBox);
+const MemoDealAnimation = memo(DealAnimation);
+const MemoTrickArea = memo(TrickArea);
+const MemoDeclareSplash = memo(DeclareSplash);
+const MemoRoundSplash = memo(RoundSplash);
+const MemoThrowSplash = memo(ThrowSplash);
+const MemoEmotes = memo(Emotes);
+const MemoToasts = memo(Toasts);
