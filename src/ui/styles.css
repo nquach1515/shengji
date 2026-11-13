@@ -582,6 +582,7 @@ input { font: inherit; }
 @keyframes glow { 0%, 100% { opacity: 1; } 12.5%, 87.5% { opacity: 0.9; } 25%, 75% { opacity: 0.5; } 37.5%, 62.5% { opacity: 0.1; } 50% { opacity: 0; } }
 .seat-plate .nm { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .seat-plate .sub { font-size: 12px; color: var(--ink-dim); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.cc { font-variant-numeric: tabular-nums; }
 .cc::before { content: ''; display: inline-block; width: 7px; height: 10px; border-radius: 1.5px; background: linear-gradient(160deg, var(--back-a), var(--back-b)); box-shadow: 0 0 0 1px #fbf1dc; margin-right: 5px; vertical-align: -1px; }
 .backs { position: relative; width: 150px; height: 56px; }
 .backs .back-slot { position: absolute; left: 50%; top: 4px; margin-left: -17px; transform-origin: 50% 160%; }
@@ -700,6 +701,8 @@ input { font: inherit; }
 .seat.left{left:calc((100% - 100cqw)/2 + 4px)}
 .seat.right{right:calc((100% - 100cqw)/2 + 4px)}
 .seat-plate{min-width:0;flex-direction:column;padding:6px 8px;gap:3px}
+/* stacked plate: centre the name and count, so the name doesn't drift as the card count changes width */
+.seat-plate .nm,.seat-plate .sub{justify-content:center}
 .seat-plate .nm{font-size:12px}
 .seat-plate .nm .tag,.seat-plate .sub .decl,.seat .backs{display:none}
 .seat .avatar{--size: 30px}
