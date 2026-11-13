@@ -1458,14 +1458,22 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
                 <span className={`pts ${t.winner! % 2 === usTeam ? 'us' : 'them'}`}>{t.points} pts</span>
               )}
             </div>
-            <div className="history-plays">
+            <div className={`history-plays ${Math.max(...t.plays.map((p) => p.cards.length)) >= 5 ? 'big' : ''}`}>
               {t.plays.map((p, i) => (
                 <div key={p.seat} className={`history-play ${p.seat === t.winner ? 'won' : ''}`}>
                   <div className="who">
                     {name(p.seat)}
                     {i === 0 && <span className="tag">led</span>}
                   </div>
-                  <div className="cards">
+                  <div
+                    className="cards"
+                    style={
+                      {
+                        '--n': p.cards.length,
+                        '--gaps': p.cards.filter((c, i) => i > 0 && effSuit(c, histCtx) !== effSuit(p.cards[i - 1], histCtx)).length,
+                      } as React.CSSProperties
+                    }
+                  >
                     {p.cards.map((c, i) => (
                       <div key={c.id} className={`fan-slot ${i > 0 && effSuit(c, histCtx) !== effSuit(p.cards[i - 1], histCtx) ? 'suit-break' : ''}`}>
                         <CardFace card={c} />

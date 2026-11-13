@@ -743,13 +743,22 @@ input { font: inherit; }
 .history-play { padding: 6px 8px 8px; border-radius: 10px; border: 1px solid transparent; min-width: 0; overflow: hidden; }
 .history-play.won { border-color: rgba(232, 182, 76, 0.55); background: rgba(232, 182, 76, 0.07); }
 .history-play .who { font-size: 12px; color: var(--ink-dim); margin-bottom: 5px; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
-/* the fan squeezes to fit its column: each slot shrinks (cards overlap more) and the last card shows in full */
-.history-play .cards { display: flex; width: 100%; min-width: 0; }
-.history-play .cards .fan-slot { flex: 0 1 26px; min-width: 9px; }
+/* the fan squeezes to fit its column: each slot shrinks (cards overlap more) and the last card shows in full. Slots never
+   go below the width of a card's corner index (so every card stays readable); a big throw that still doesn't fit wraps
+   onto another line. --n = cards in the play, --gaps = suit breaks (8px each), both set inline. */
+.history-play .cards { display: flex; flex-wrap: wrap; row-gap: 6px; width: 100%; min-width: 0; container-type: inline-size; }
+.history-play .cards .fan-slot {
+  flex: 0 0 clamp(20px, (100cqw - 56px - var(--gaps, 0) * 8px) / max(var(--n, 1) - 1, 1), 26px);
+  min-width: 0;
+}
 .history-play .cards .fan-slot:last-child { flex: 0 0 auto; }
 .history-play .cards .card { --cw: 56px; }
 @container stage (max-width: 720px) {
   .history-plays { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* a big play (5+ cards; everyone plays the same count) won't fit half a phone's width: one row per player, name left */
+  .history-plays.big { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .history-plays.big .history-play { display: flex; align-items: center; gap: 8px; }
+  .history-plays.big .history-play .who { flex: 0 0 56px; flex-direction: column; align-items: flex-start; gap: 3px; margin: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* where a play switches suit (e.g. trump or off-suit filler), leave a gap */
