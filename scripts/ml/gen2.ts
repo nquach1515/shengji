@@ -10,7 +10,8 @@ import { bury, collectTrick, dealOne, declare, finalizeDeclaration, GameState, n
 import { decisionContext, moveFeatures } from '../../src/game/features';
 import { redactFor } from '../../src/game/info';
 import { learnedPlay } from '../../src/game/policy';
-import { attackerValue, cloneState, determinize, moveOptions } from '../../src/game/search';
+import { attackerValue, cloneState, determinize, moveOptions, searchBury, searchPlay } from '../../src/game/search';
+import { liveMove } from '../../src/game/live';
 
 const target = Number(process.argv[2] ?? 1000);
 const samples = Number(process.argv[3] ?? 32);
@@ -19,6 +20,12 @@ const nm = () => '';
 const LEVEL_WEIGHT = Number(process.env.LEVEL_WEIGHT ?? 20);
 // DECKS=3 generates 3-deck training data; NT_ONLY=1 only no-trump rounds (for a no-trump model)
 const DECKS = Number(process.env.DECKS ?? 2);
+// HARD_GAMES=1: the games are played by Hard bots on every seat (the live pipeline: model + search + rules), so the
+// training positions are the ones Hard bots actually reach against each other. Each decision is still scored by
+// playouts with the trained model on every seat (a full Hard search inside every playout would cost thousands of times
+// more). A few heuristic moves keep the positions varied.
+const HARD = !!process.env.HARD_GAMES;
+const hardMove = (v: GameState, seat: number) => liveMove(v, seat, (prior) => searchPlay(v, seat, DECKS === 3 ? 24 : 48, false, prior, LEVEL_WEIGHT));
 
 function playout(d: GameState, seat: number, move: string[]): number {
   if (play(d, seat, move, nm)) return 0;
@@ -45,7 +52,8 @@ while (made < target) {
   }
   finalizeDeclaration(s);
   if (process.env.NT_ONLY && s.trumpSuit !== 'NT') continue; // NT_ONLY=1: no-trump rounds only
-  bury(s, s.dealer!, botBury(redactFor(s, s.dealer!), s.dealer!));
+  // HARD_GAMES=1: the dealer buries as a Hard bot does (searched burial)
+  bury(s, s.dealer!, HARD ? searchBury(redactFor(s, s.dealer!), s.dealer!) : botBury(redactFor(s, s.dealer!), s.dealer!));
   while (s.phase === 'playing' && made < target) {
     const seat = s.turn;
     const view = redactFor(s, seat);
@@ -67,7 +75,7 @@ while (made < target) {
       }
     }
     // the game itself follows the trained model, with 15% heuristic moves so it sees varied positions
-    const ids = Math.random() < 0.15 ? botPlay(view, seat) : learnedPlay(view, seat);
+    const ids = HARD ? (Math.random() < 0.08 ? botPlay(view, seat) : hardMove(view, seat)) : Math.random() < 0.15 ? botPlay(view, seat) : learnedPlay(view, seat);
     play(s, seat, ids, nm);
     if (s.trick!.winner !== null) collectTrick(s, nm);
   }
