@@ -245,8 +245,9 @@ function groupBySuit(hand: Card[], ctx: TrumpCtx): Map<EffSuit, Card[]> {
 /** No-trump play changes under test (off live); scripts switch them on per bot with withNtTweaks. */
 export interface NtTweaks {
   leadLong: boolean;
+  keepLong: boolean;
 }
-let ntTweaks: NtTweaks = { leadLong: false };
+let ntTweaks: NtTweaks = { leadLong: false, keepLong: false };
 export function withNtTweaks<T>(t: Partial<NtTweaks>, fn: () => T): T {
   const prev = ntTweaks;
   ntTweaks = { ...prev, ...t };
@@ -416,7 +417,14 @@ function smartFollow(s: GameState, seat: number): Card[] {
     (c) => c,
     (c) => splitWins(s, seat, c),
   );
-  const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0) + pairBreakCost(cards, hand, ctx);
+  // Being tested: with no trump, discards come from short suits, keeping long suits (which win tricks once established).
+  const leadSuit = effSuit(lead[0], ctx);
+  const lenIn = new Map<EffSuit, number>();
+  for (const c of hand) lenIn.set(effSuit(c, ctx), (lenIn.get(effSuit(c, ctx)) ?? 0) + 1);
+  const keepLong = ctx.suit === 'NT' && ntTweaks.keepLong;
+  const lengthCost = (cards: Card[]) =>
+    keepLong ? cards.reduce((t, c) => (effSuit(c, ctx) !== leadSuit && !isTrump(c, ctx) ? t + 3 * lenIn.get(effSuit(c, ctx))! : t), 0) : 0;
+  const cost = (cards: Card[]) => cards.reduce((t, c) => t + strength(c, ctx), 0) + pairBreakCost(cards, hand, ctx) + lengthCost(cards);
   const pts = (cards: Card[]) => totalPoints(cards);
   const wins = (cards: Card[]) => trickWinner([...trick.plays, { seat, cards }], ctx) === seat;
   const pick = (list: Card[][], score: (c: Card[]) => number) => list.slice().sort((a, b) => score(a) - score(b))[0];

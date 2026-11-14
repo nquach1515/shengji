@@ -87,6 +87,8 @@ const configs: Record<string, Policy> = {
   // rounds out with the rule bot
   'heuristic-ntlong': (s, seat) => withNtTweaks({ leadLong: true }, () => botPlay(s, seat)),
   'live-ntlong': (s, seat) => withNtTweaks({ leadLong: true }, () => configs.live(s, seat)),
+  'heuristic-ntkeep': (s, seat) => withNtTweaks({ keepLong: true }, () => botPlay(s, seat)),
+  'live-ntkeep': (s, seat) => withNtTweaks({ keepLong: true }, () => configs.live(s, seat)),
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,
   'learned-leads': (s, seat) => (s.trick!.plays.length === 0 ? learnedPlay(s, seat) : botPlay(s, seat)),
