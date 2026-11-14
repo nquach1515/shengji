@@ -168,7 +168,7 @@ const MASTER = 0.45;
 
 type Build = (a: BaseAudioContext, out: GainNode, t: number) => void;
 
-export type SoundName = 'card' | 'deal' | 'sweep' | 'coin' | 'declare' | 'turn' | 'win' | 'lose' | 'error';
+export type SoundName = 'card' | 'deal' | 'sweep' | 'coin' | 'theirPoints' | 'declare' | 'turn' | 'win' | 'lose' | 'error';
 
 /** Every sound: how to build it, its level, and its length (for rendering it ahead of time in the app). */
 export const SOUNDS: Record<SoundName, { build: Build; volume: number; dur: number }> = {
@@ -205,7 +205,7 @@ export const SOUNDS: Record<SoundName, { build: Build; volume: number; dur: numb
     volume: MASTER,
     dur: 0.5,
   },
-  /** Attackers capture points: a gentle two-note chime. */
+  /** Your team takes a trick with points (won when attacking, blocked when defending): a gentle two-note chime. */
   coin: {
     build: (a, out, t) => {
       tone(a, out, t, 1047, 0.4, 0.05, 'sine', 0.01);
@@ -213,6 +213,15 @@ export const SOUNDS: Record<SoundName, { build: Build; volume: number; dur: numb
     },
     volume: MASTER,
     dur: 0.7,
+  },
+  /** The opponents take a trick with points: a soft, low falling pair, quieter and shorter than losing a round. */
+  theirPoints: {
+    build: (a, out, t) => {
+      tone(a, out, t, 294, 0.22, 0.04, 'sine', 0.01);
+      tone(a, out, t + 0.11, 247, 0.3, 0.035, 'sine', 0.01);
+    },
+    volume: MASTER,
+    dur: 0.5,
   },
   /** Trump declared: a soft, low bell. */
   declare: {

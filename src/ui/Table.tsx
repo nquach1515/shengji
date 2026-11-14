@@ -1283,10 +1283,21 @@ function useSounds(view: PlayerView, myTurn: boolean) {
     const winner = trick?.winner ?? null;
     if (trick && winner !== null && (p.winner === null || trickKey !== p.trickKey)) {
       setTimeout(() => sfx.sweep(), 850);
-      const attackers = view.dealer !== null && winner % 2 !== view.dealer % 2;
-      if (attackers && trick.points > 0) setTimeout(() => sfx.coin(), 1050);
-      // our team took points
-      if (attackers && trick.points > 0 && view.you !== null && winner % 2 === view.you % 2) setTimeout(() => haptic.points(), 1050);
+      if (trick.points > 0) {
+        // From your side of the table: your team taking points is good news whether attacking (they count toward the
+        // score) or defending (they're blocked); the opponents taking them is bad news either way.
+        if (view.you !== null) {
+          const ours = winner % 2 === view.you % 2;
+          setTimeout(() => {
+            if (ours) {
+              sfx.coin();
+              haptic.points();
+            } else sfx.theirPoints();
+          }, 1050);
+        } else if (view.dealer !== null && winner % 2 !== view.dealer % 2) {
+          setTimeout(() => sfx.coin(), 1050); // watching: points added to the attackers' score
+        }
+      }
     }
     const decl = view.declaration ? `${view.round}-${view.declaration.seat}-${view.declaration.strength}` : '';
     if (decl && decl !== p.decl) {
