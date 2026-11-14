@@ -1,7 +1,9 @@
+import { MotionConfig } from 'framer-motion';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { IN_APP } from './net/site';
 import { App } from './ui/App';
+import { SMOOTH } from './ui/motion';
 import './ui/fonts.css';
 import './ui/styles.css';
 
@@ -16,7 +18,9 @@ if (IN_APP) {
 function render() {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <MotionConfig transition={SMOOTH}>
+        <App />
+      </MotionConfig>
     </StrictMode>,
   );
 }

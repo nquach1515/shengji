@@ -24,3 +24,12 @@ export const motion = new Proxy(base, {
     return cache.get(tag);
   },
 }) as typeof base;
+
+/**
+ * UI chrome (panels, buttons, chips, toasts) eases into place. framer-motion's default springs overshoot by a pixel or
+ * two and then snap the last fraction in one frame when they decide they've stopped, a visible hiccup.
+ */
+export const SMOOTH = { duration: 0.3, ease: [0.22, 1, 0.36, 1] } as const;
+/** For springs kept on purpose (cards, celebrations): run them all the way to rest instead of snapping the last ~0.5px.
+ * The thresholds are in the value's own units, so they must be tiny enough for scale too (0.0005 of a 250px logo). */
+export const settle = <T extends object>(t: T) => ({ ...t, restDelta: 0.0005, restSpeed: 0.01 });

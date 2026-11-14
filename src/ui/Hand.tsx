@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
-import { motion } from './motion';
+import { motion, settle } from './motion';
 import { memo, PointerEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Card } from '../game/cards';
 import { effSuit, isTrump, TrumpCtx } from '../game/rules';
@@ -179,7 +179,7 @@ const Slot = memo(
         initial={from}
         animate={{ x, y, rotate, opacity: 1, scale: 1 }}
         exit={{ y: y - 140, opacity: 0, scale: 0.85, transition: { duration: 0.25 } }}
-        transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
+        transition={settle({ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 })}
       >
         <div className={`lift ${selected ? 'sel' : ''}`}>
           <CardFace card={card} trump={trump} selected={selected} />

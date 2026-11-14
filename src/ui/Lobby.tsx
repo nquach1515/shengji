@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
-import { motion } from './motion';
+import { motion, SMOOTH, settle } from './motion';
 import { useEffect, useRef, useState } from 'react';
 import { Action, PlayerView } from '../net/protocol';
 import { Avatar, posOf, SHARE_INVITES, shareInvite, sideOf } from './common';
@@ -55,7 +55,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
               className="ch"
               initial={{ rotateY: 90, opacity: 0 }}
               animate={{ rotateY: 0, opacity: 1 }}
-              transition={{ delay: 0.1 + i * 0.09, type: 'spring', stiffness: 200, damping: 15 }}
+              transition={settle({ delay: 0.1 + i * 0.09, type: 'spring', stiffness: 200, damping: 15 })}
             >
               {ch}
             </motion.div>
@@ -87,7 +87,7 @@ export function Lobby({ view, send, onLeave, netState, netDetail }: Props) {
                       initial={{ scale: 0.6, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.6, opacity: 0 }}
-                      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+                      transition={SMOOTH}
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}
                     >
                       <Avatar seat={seat} side={side} />

@@ -1,5 +1,5 @@
 import { AnimatePresence, animate, useMotionValue } from 'framer-motion';
-import { motion } from './motion';
+import { motion, SMOOTH, settle } from './motion';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME, totalPoints } from '../game/cards';
 import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
@@ -303,7 +303,7 @@ function Hud({
             className={`medallion ${redSuit(view.trumpSuit) ? 'red' : ''} suit-${view.trumpSuit}`}
             initial={{ scale: 0.3, rotate: -90 }}
             animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 14 }}
+            transition={settle({ type: 'spring', stiffness: 260, damping: 14 })}
           >
             {trumpGlyph(view.trumpSuit)}
           </motion.div>
@@ -443,7 +443,7 @@ function TeamPanel({ view, team }: { view: PlayerView; team: number }) {
           className="v"
           initial={{ y: 12, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+          transition={SMOOTH}
         >
           {levelLabel(view.levels[team])}
         </motion.span>
@@ -478,7 +478,7 @@ function TeamPanel({ view, team }: { view: PlayerView; team: number }) {
               <motion.div
                 className="fill"
                 animate={{ width: `${Math.min(100, (view.attackerPoints / total) * 100)}%` }}
-                transition={{ type: 'spring', stiffness: 90, damping: 18 }}
+                transition={settle({ type: 'spring', stiffness: 90, damping: 18 })}
               />
               {Array.from({ length: total / step - 1 }, (_, i) => (i + 1) * step).map((at) => (
                 <div key={at} className={`tick ${at === win ? 'flip' : ''}`} style={{ left: `${(at / total) * 100}%` }} />
@@ -546,7 +546,7 @@ function SeatBox({ seatIdx, seat, view, send }: { seatIdx: number; seat: SeatVie
               className="back-slot"
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1, rotate: t * 46, x: t * backs * 7.5, y: Math.abs(t) * 7 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              transition={settle({ type: 'spring', stiffness: 300, damping: 22 })}
             >
               <CardBack />
             </motion.div>
@@ -690,7 +690,7 @@ function TrickArea({ view, ctx, size }: { view: PlayerView; ctx: TrumpCtx; size:
               className="trick-anchor"
               initial={{ x: from.x, y: from.y, opacity: 0, scale: 0.75, rotate: pos === 'left' ? -25 : pos === 'right' ? 25 : 0 }}
               animate={{ x: at.x, y: at.y, opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+              transition={settle({ type: 'spring', stiffness: 260, damping: 26 })}
             >
               <div className={`trick-play ${p.seat === leading ? 'winner' : ''} ${p.cards.length > 5 ? 'huge' : p.cards.length > 3 ? 'many' : ''}`}>
                 {p.cards.map((c, i) => (
@@ -739,7 +739,7 @@ function DeclareSplash({ view, name }: { view: PlayerView; name: (s: number) => 
           initial={{ opacity: 0, scale: 0.4 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.4 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 16 }}
+          transition={settle({ type: 'spring', stiffness: 260, damping: 16 })}
         >
           <div className={`big ${redSuit(d.suit) ? 'red' : ''} suit-${d.suit}`}>{trumpGlyph(d.suit)}</div>
           <div className="cap">
@@ -1146,7 +1146,7 @@ function RoundEnd({ view, send }: { view: PlayerView; send: (a: Action) => void 
   return (
     <Modal>
       {over && weWon && <Confetti />}
-      <motion.h2 initial={{ scale: 0.7 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 12 }}>
+      <motion.h2 initial={{ scale: 0.7 }} animate={{ scale: 1 }} transition={settle({ type: 'spring', stiffness: 200, damping: 12 })}>
         {title}
       </motion.h2>
       <div className="sub">{subtitle}</div>
@@ -1366,7 +1366,7 @@ function Voids({ voids, inline }: { voids: string[]; inline?: boolean }) {
             title={`Out of ${SUIT_WORD[v]}`}
             initial={{ scale: 0, rotate: -90 }}
             animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+            transition={settle({ type: 'spring', stiffness: 400, damping: 18 })}
           >
             {v === 'T' ? '主' : `${SUIT_GLYPH[v as keyof typeof SUIT_GLYPH]}\uFE0E`}
           </motion.span>
@@ -1402,7 +1402,7 @@ function ThrowSplash({ view, name }: { view: PlayerView; name: (s: number) => st
             initial={{ opacity: 0, y: 16, scale: 0.85 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            transition={SMOOTH}
           >
             <div className="t">Throw blocked</div>
             <div className="s">
@@ -1495,7 +1495,7 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
             className="history-row"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(0.3, (view.tricks.length - n) * 0.03) }}
+            transition={{ ...SMOOTH, delay: Math.min(0.3, (view.tricks.length - n) * 0.03) }}
           >
             <div className="history-head">
               <span className="num">#{n}</span>
@@ -1541,9 +1541,8 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
   );
 }
 
-// The ⋯ menu and emoji bar ease into place (framer-motion's default spring overshot by a pixel, then snapped the
-// last fraction in one frame as it came to rest).
-const DROP_EASE = { duration: 0.2, ease: [0.22, 1, 0.36, 1] } as const;
+// The ⋯ menu and emoji bar ease into place, a little quicker than other chrome.
+const DROP_EASE = { ...SMOOTH, duration: 0.2 } as const;
 
 // Memoized: these depend on the game view (and stable callbacks), not on which cards you've selected, so a tap in your
 // hand skips them entirely.

@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
-import { motion } from './motion';
+import { motion, SMOOTH, settle } from './motion';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, levelLabel } from '../game/cards';
 import { loadSavedHost } from '../net/host';
@@ -131,7 +131,7 @@ export function Segmented<T extends string | number>({
           }}
         >
           {o.value === shown && (
-            <motion.div layoutId={`seg-${id}`} className="pill" transition={{ type: 'spring', stiffness: 400, damping: 32 }} />
+            <motion.div layoutId={`seg-${id}`} className="pill" transition={settle({ type: 'spring', stiffness: 400, damping: 32 })} />
           )}
           <span>{o.label}</span>
         </button>
@@ -208,7 +208,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
                 style={{ position: 'absolute', bottom: 0, transformOrigin: '50% 135%' }}
                 initial={introLogo ? false : { rotate: 0, y: 60, opacity: 0 }}
                 animate={{ rotate: (i - mid) * 15, y: Math.abs(i - mid) * 8, opacity: 1 }}
-                transition={{ delay: 0.1 + i * 0.08, type: 'spring', stiffness: 150, damping: 15 }}
+                transition={settle({ delay: 0.1 + i * 0.08, type: 'spring', stiffness: 150, damping: 15 })}
                 whileHover={{ y: Math.abs(i - mid) * 8 - 18, transition: { duration: 0.2 } }}
               >
                 <CardFace card={card} style={{ ['--cw' as string]: '92px' }} />
@@ -221,7 +221,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
           className="wordmark"
           initial={introLogo ? false : { opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.35, type: 'spring', stiffness: 120, damping: 14 }}
+          transition={settle({ delay: 0.35, type: 'spring', stiffness: 120, damping: 14 })}
         >
           <div className="zh" style={introLogo === 'hidden' ? { visibility: 'hidden' } : undefined}>
             升级
@@ -232,7 +232,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
           The classic Chinese partnership card game. Two or three decks, four players, one climb from 2 to Ace.
         </motion.div>
 
-        <motion.div className="name-row" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+        <motion.div className="name-row" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SMOOTH, delay: 0.6 }}>
           <span>Your name</span>
           <input
             className="input"
@@ -252,7 +252,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
             className="panel mode-card"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, type: 'spring', stiffness: 120, damping: 18 }}
+            transition={{ ...SMOOTH, duration: 0.5, delay: 0.7 }}
           >
             <h3>Play with bots</h3>
             <p>You and a bot partner against two bots.</p>
@@ -286,7 +286,7 @@ export function Home({ onStart, introLogo }: { onStart: (mode: StartMode, name: 
             className="panel mode-card"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, type: 'spring', stiffness: 120, damping: 18 }}
+            transition={{ ...SMOOTH, duration: 0.5, delay: 0.8 }}
           >
             <h3>Play with friends</h3>
             <p>Host a table and share the code — bots can fill any empty seat.</p>
@@ -521,7 +521,7 @@ function InviteJoin({ code, onJoin, onHome }: { code: string; onJoin: (name: str
           style={{ width: '100%', alignItems: 'center', textAlign: 'center' }}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, type: 'spring', stiffness: 140, damping: 18 }}
+          transition={{ ...SMOOTH, duration: 0.45, delay: 0.1 }}
         >
           <h3>You're invited to a table</h3>
           <div className="room-code" style={{ margin: '4px 0 6px' }}>
@@ -531,7 +531,7 @@ function InviteJoin({ code, onJoin, onHome }: { code: string; onJoin: (name: str
                 className="ch"
                 initial={{ rotateY: 90, opacity: 0 }}
                 animate={{ rotateY: 0, opacity: 1 }}
-                transition={{ delay: 0.2 + i * 0.08, type: 'spring', stiffness: 200, damping: 15 }}
+                transition={settle({ delay: 0.2 + i * 0.08, type: 'spring', stiffness: 200, damping: 15 })}
               >
                 {ch}
               </motion.div>
