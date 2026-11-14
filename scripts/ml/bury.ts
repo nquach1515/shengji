@@ -49,6 +49,11 @@ function duplicate(a: BuryParams | 'search', b: BuryParams, deals: number) {
       if (o) declare(base, seat, o.cardIds);
     }
     finalizeDeclaration(base);
+    // NT_ONLY=1: only deals that came out no trump (as declared at the table), to test no-trump play
+    if (process.env.NT_ONLY && base.trumpSuit !== 'NT') {
+      i--;
+      continue;
+    }
     const [ra, rb] = [runRound(base, a), runRound(base, b)];
     pts.push(ra[0] - rb[0]);
     val.push(ra[1] - rb[1]);

@@ -2,7 +2,7 @@
 // teams swapped, so card luck cancels and only decisions differ. Bots receive redacted states only.
 //   npx tsx scripts/ml/match.ts <A> <B> [deals]   configs: heuristic | search-leads | learned | learned-leads | learned+search-leads
 import { writeFileSync } from 'node:fs';
-import { botBury, botDeclare, botPlay } from '../../src/game/bot';
+import { botBury, botDeclare, botPlay, withNtTweaks } from '../../src/game/bot';
 import { bury, collectTrick, dealOne, declare, decksOf, finalizeDeclaration, GameState, newGame, play, rulesOf, startRound } from '../../src/game/engine';
 import { redactFor } from '../../src/game/info';
 import { readFileSync } from 'node:fs';
@@ -83,6 +83,10 @@ const configs: Record<string, Policy> = {
     keepHighCards(s, seat, hopelessTrickMove(s, seat) ?? feedTrickMove(s, seat) ?? feedLikelyMove(s, seat) ?? searchPlay(s, seat, 16, false, learnedPlay(s, seat), LEVEL_WEIGHT)),
   'search-16': (s, seat) => searchPlay(s, seat, 16, false, learnedPlay(s, seat), LEVEL_WEIGHT),
   heuristic: botPlay,
+  // no-trump play changes under test (src/game/bot.ts NtTweaks): the rule bot, and the live bots whose search plays
+  // rounds out with the rule bot
+  'heuristic-ntlong': (s, seat) => withNtTweaks({ leadLong: true }, () => botPlay(s, seat)),
+  'live-ntlong': (s, seat) => withNtTweaks({ leadLong: true }, () => configs.live(s, seat)),
   'search-leads': (s, seat) => searchPlay(s, seat, SEARCH_SAMPLES, true),
   learned: learnedPlay,
   'learned-leads': (s, seat) => (s.trick!.plays.length === 0 ? learnedPlay(s, seat) : botPlay(s, seat)),
@@ -144,6 +148,11 @@ for (let i = 0; i < deals; i++) {
     if (o) declare(base, seat, o.cardIds);
   }
   finalizeDeclaration(base);
+  // NT_ONLY=1: only deals that came out no trump (as declared at the table), to test no-trump play
+  if (process.env.NT_ONLY && base.trumpSuit !== 'NT') {
+    i--;
+    continue;
+  }
   bury(base, base.dealer!, botBury(redactFor(base, base.dealer!), base.dealer!));
   const run = (aTeam: number) => {
     const s: GameState = structuredClone(base);

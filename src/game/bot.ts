@@ -242,6 +242,21 @@ function groupBySuit(hand: Card[], ctx: TrumpCtx): Map<EffSuit, Card[]> {
   return m;
 }
 
+/** No-trump play changes under test (off live); scripts switch them on per bot with withNtTweaks. */
+export interface NtTweaks {
+  leadLong: boolean;
+}
+let ntTweaks: NtTweaks = { leadLong: false };
+export function withNtTweaks<T>(t: Partial<NtTweaks>, fn: () => T): T {
+  const prev = ntTweaks;
+  ntTweaks = { ...prev, ...t };
+  try {
+    return fn();
+  } finally {
+    ntTweaks = prev;
+  }
+}
+
 function smartLead(s: GameState, seat: number): Card[] {
   const k = knowledge(s, seat);
   const ctx = k.ctx;
@@ -289,8 +304,10 @@ function smartLead(s: GameState, seat: number): Card[] {
     if (comp) return comp.cards;
   }
 
-  // 5. Low, pointless single from the shortest side suit (works toward a void we can ruff later).
-  const ordered = sides.slice().sort((a, b) => a[1].length - b[1].length);
+  // 5. Low, pointless single from the shortest side suit (works toward a void we can ruff later). Being tested: with
+  // no trump, from the longest instead (few trumps to ruff with; long suits are what win tricks once established).
+  const longFirst = ctx.suit === 'NT' && ntTweaks.leadLong;
+  const ordered = sides.slice().sort((a, b) => (longFirst ? b[1].length - a[1].length : a[1].length - b[1].length));
   for (const [suit, cards] of ordered) {
     if (oppCanRuff(suit, k) && ordered.length > 1) continue;
     const singles = cards
