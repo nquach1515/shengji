@@ -358,6 +358,7 @@ function Hud({
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
+                transition={DROP_EASE}
               >
                 {EMOTES.map((e) => (
                   <button
@@ -378,6 +379,7 @@ function Hud({
                 initial={{ opacity: 0, y: -8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                transition={DROP_EASE}
               >
                 {view.online && (
                   <>
@@ -1538,6 +1540,10 @@ function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: num
     </Modal>
   );
 }
+
+// The ⋯ menu and emoji bar ease into place (framer-motion's default spring overshot by a pixel, then snapped the
+// last fraction in one frame as it came to rest).
+const DROP_EASE = { duration: 0.2, ease: [0.22, 1, 0.36, 1] } as const;
 
 // Memoized: these depend on the game view (and stable callbacks), not on which cards you've selected, so a tap in your
 // hand skips them entirely.
