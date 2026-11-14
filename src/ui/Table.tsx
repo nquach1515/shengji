@@ -1,9 +1,9 @@
 import { AnimatePresence, animate, useMotionValue } from 'framer-motion';
 import { motion } from './motion';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME } from '../game/cards';
+import { BIG_JOKER, Card, levelLabel, SUIT_GLYPH, SUIT_NAME, totalPoints } from '../game/cards';
 import { DeclareOption, GameEvent, TrumpSuit } from '../game/engine';
-import { decompose, effSuit, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
+import { decompose, effSuit, sortHand, trickWinner, TrumpCtx, validateFollow, validateLead } from '../game/rules';
 import { Action, PlayerView, SeatView } from '../net/protocol';
 import { CardBack, CardFace } from './Card';
 import { Avatar, Pos, posOf, SHARE_INVITES, shareInvite, sideOf, towards } from './common';
@@ -69,6 +69,8 @@ export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, ne
     [view.you, view.seats],
   );
   const onLast = useCallback(() => setShowLast(true), []);
+  const [showKitty, setShowKitty] = useState(false);
+  const onKitty = useCallback(() => setShowKitty(true), []);
   const onRules = useCallback(() => setShowRules(true), []);
   const onDisplay = useCallback(() => setShowDisplay(true), []);
   const onClear = useCallback(() => setSelected(new Set()), []);
@@ -143,7 +145,7 @@ export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, ne
 
   return (
     <div className="game">
-      <MemoHud view={view} onLast={onLast} onRules={onRules} onDisplay={onDisplay} onLeave={onLeave} send={send} />
+      <MemoHud view={view} onLast={onLast} onKitty={onKitty} onRules={onRules} onDisplay={onDisplay} onLeave={onLeave} send={send} />
       {view.online && netState !== 'online' && (
         <div className="conn-banner">
           <NetBadge state={netState} detail={netDetail} />
@@ -210,6 +212,10 @@ export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, ne
       <AnimatePresence>
         {showRules && <RulesModal onClose={() => setShowRules(false)} />}
         {showDisplay && <DisplayModal onClose={() => setShowDisplay(false)} />}
+        {/* the host only ever sends the kitty to the dealer during play (and to everyone at round end) */}
+        {showKitty && view.kitty && view.phase === 'playing' && (
+          <KittyModal cards={view.kitty} ctx={ctx} onClose={() => setShowKitty(false)} />
+        )}
         {showLast && view.tricks.length > 0 && (
           <TrickHistory view={view} name={name} onClose={() => setShowLast(false)} />
         )}
@@ -226,6 +232,7 @@ export function Table({ view, send: sendProp, onLeave: onLeaveProp, netState, ne
 function Hud({
   view,
   onLast,
+  onKitty,
   onRules,
   onDisplay,
   onLeave,
@@ -233,6 +240,7 @@ function Hud({
 }: {
   view: PlayerView;
   onLast: () => void;
+  onKitty: () => void;
   onRules: () => void;
   onDisplay: () => void;
   onLeave: () => void;
@@ -324,6 +332,12 @@ function Hud({
           >
             ☺
           </button>
+          {/* the dealer buried the kitty, so only they get to look at it again (the host sends it to no one else) */}
+          {view.phase === 'playing' && view.kitty && view.dealer === view.you && (
+            <button className="btn icon-btn ib-kitty" title="Your kitty: the cards you buried" aria-label="Your kitty" onClick={onKitty}>
+              底
+            </button>
+          )}
           <button className="btn icon-btn" title="Tricks played this round" onClick={onLast} disabled={view.tricks.length === 0}>
             ↺
           </button>
@@ -1430,6 +1444,27 @@ function RoundReview({ view }: { view: PlayerView }) {
 }
 
 /** Every trick played this round, newest first: who led, each player's cards, the winner and the points. */
+/** The cards you buried, for the dealer to look at again during play. */
+function KittyModal({ cards, ctx, onClose }: { cards: Card[]; ctx: TrumpCtx; onClose: () => void }) {
+  const pts = totalPoints(cards);
+  return (
+    <Modal onClose={onClose} className="kitty-view">
+      <h2>Your kitty</h2>
+      <div className="sub">
+        The {cards.length} cards you buried · {pts ? `${pts} points` : 'no points'}. Only you can see these until the round ends.
+      </div>
+      <div className="kitty-cards">
+        {sortHand(cards, ctx).map((c) => (
+          <CardFace key={c.id} card={c} />
+        ))}
+      </div>
+      <button className="btn primary" onClick={onClose}>
+        Close
+      </button>
+    </Modal>
+  );
+}
+
 function TrickHistory({ view, name, onClose }: { view: PlayerView; name: (s: number) => string; onClose: () => void }) {
   const usTeam = (view.you ?? 0) % 2;
   const tricks = view.tricks.map((t, i) => ({ t, n: i + 1 })).reverse();

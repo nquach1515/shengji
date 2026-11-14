@@ -1039,3 +1039,8 @@ html.modal-open .home, html.modal-open .lobby { overflow: hidden; }
   100% { opacity: 0; transform: translateY(-20px); }
 }
 @media (prefers-reduced-motion: reduce) { .oval-enter, .round-splash { animation-duration: 0.01s; } .round-splash { animation: none; } }
+
+/* the dealer's look back at the kitty they buried */
+.ib-kitty { font-family: var(--serif); font-weight: 700; }
+.modal.kitty-view .kitty-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.modal.kitty-view .kitty-cards .card { --cw: 58px; }
