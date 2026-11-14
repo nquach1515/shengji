@@ -17,7 +17,7 @@ const samples = Number(process.argv[3] ?? 32);
 const out = process.argv[4] ?? 'data.jsonl';
 const nm = () => '';
 const LEVEL_WEIGHT = Number(process.env.LEVEL_WEIGHT ?? 20);
-// DECKS=3 generates 3-deck training data
+// DECKS=3 generates 3-deck training data; NT_ONLY=1 only no-trump rounds (for a no-trump model)
 const DECKS = Number(process.env.DECKS ?? 2);
 
 function playout(d: GameState, seat: number, move: string[]): number {
@@ -44,6 +44,7 @@ while (made < target) {
     if (o) declare(s, seat, o.cardIds);
   }
   finalizeDeclaration(s);
+  if (process.env.NT_ONLY && s.trumpSuit !== 'NT') continue; // NT_ONLY=1: no-trump rounds only
   bury(s, s.dealer!, botBury(redactFor(s, s.dealer!), s.dealer!));
   while (s.phase === 'playing' && made < target) {
     const seat = s.turn;
